@@ -1,0 +1,7 @@
+{
+  "name": "Align - Personal Wellness Companion",
+  "description": "A calm, cohesive system for workouts, hydration, mental check-ins, and goals designed for consistent momentum.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

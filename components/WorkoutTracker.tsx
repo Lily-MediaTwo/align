@@ -1,0 +1,639 @@
+
+import React, { useState, useMemo } from 'react';
+import { Workout, Exercise, ExerciseDefinition, SplitDay, SetLog, EquipmentType } from '../types';
+import { EQUIPMENT_CONFIG, COMMON_EXERCISES } from '../constants';
+
+interface WorkoutTrackerProps {
+  activeWorkout?: Workout;
+  completedWorkouts: Workout[];
+  onUpdate: (workout: Workout) => void;
+  onStart: (name: string) => void;
+  availableExercises: ExerciseDefinition[];
+  onNewExerciseCreated: (ex: ExerciseDefinition) => void;
+  weeklySplit: SplitDay[];
+  allHistory: Workout[];
+  todayStr: string;
+}
+
+const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({ 
+  activeWorkout, 
+  completedWorkouts,
+  onUpdate, 
+  onStart,
+  availableExercises, 
+  onNewExerciseCreated,
+  weeklySplit,
+  allHistory,
+  todayStr
+}) => {
+  const [view, setView] = useState<'active' | 'history'>(activeWorkout ? 'active' : 'history');
+  const [isAdding, setIsAdding] = useState(false);
+  const [newExercise, setNewExercise] = useState<{ name: string; category: string; equipment: EquipmentType }>({ 
+    name: '', 
+    category: 'Chest',
+    equipment: 'barbell'
+  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewFilter, setViewFilter] = useState<string>('All');
+
+  // History Filters
+  const [historyDateRange, setHistoryDateRange] = useState<'all' | '7' | '30'>('all');
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<string>('All');
+
+  const today = new Date();
+  const [y, m, d] = todayStr.split('-').map(Number);
+  const localToday = new Date(y, m - 1, d);
+  const dayIndex = (localToday.getDay() + 6) % 7;
+  const splitDay = weeklySplit[dayIndex];
+  const todayDisplayStr = localToday.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const findPreviousStats = (exerciseName: string) => {
+    const sortedHistory = [...allHistory].filter(w => w.completed).sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    for (const workout of sortedHistory) {
+      const match = workout.exercises.find(e => e.name.toLowerCase() === exerciseName.toLowerCase());
+      if (match) {
+        return match.sets.map(s => ({
+          reps: s.reps,
+          weight: s.weight,
+          durationMinutes: s.durationMinutes
+        }));
+      }
+    }
+    return undefined;
+  };
+
+  const handleSetChange = (exerciseId: string, setIndex: number, field: keyof SetLog, value: string) => {
+    if (!activeWorkout) return;
+    const updated = { ...activeWorkout };
+    const exercise = updated.exercises.find(e => e.id === exerciseId);
+    if (exercise) {
+      const set = exercise.sets[setIndex];
+      if (set) {
+        (set as any)[field] = Number(value);
+      }
+      onUpdate(updated);
+    }
+  };
+
+  const handleEquipmentChange = (exerciseId: string, equipment: EquipmentType) => {
+    if (!activeWorkout) return;
+    const updated = { ...activeWorkout };
+    const exercise = updated.exercises.find(e => e.id === exerciseId);
+    if (exercise) {
+      exercise.equipment = equipment;
+      onUpdate(updated);
+    }
+  };
+
+  const toggleSetComplete = (exerciseId: string, setIndex: number) => {
+    if (!activeWorkout) return;
+    const updated = { ...activeWorkout };
+    const exercise = updated.exercises.find(e => e.id === exerciseId);
+    if (exercise) {
+      const set = exercise.sets[setIndex];
+      if (set) {
+        set.isCompleted = !set.isCompleted;
+      }
+      onUpdate(updated);
+    }
+  };
+
+  const addSet = (exerciseId: string) => {
+    if (!activeWorkout) return;
+    const updated = { ...activeWorkout };
+    const exercise = updated.exercises.find(e => e.id === exerciseId);
+    if (exercise) {
+      const lastSet = exercise.sets[exercise.sets.length - 1];
+      const isTimed = ['Cardio', 'Active Recovery'].includes(exercise.category);
+      
+      exercise.sets.push({ 
+        reps: isTimed ? undefined : (lastSet?.reps || 0), 
+        weight: isTimed ? undefined : (lastSet?.weight || 0),
+        durationMinutes: isTimed ? (lastSet?.durationMinutes || 0) : undefined,
+        isCompleted: false 
+      });
+      onUpdate(updated);
+    }
+  };
+
+  const removeSet = (exerciseId: string, setIndex: number) => {
+    if (!activeWorkout) return;
+    const updated = { ...activeWorkout };
+    const exercise = updated.exercises.find(e => e.id === exerciseId);
+    if (exercise && exercise.sets.length > 1) {
+      exercise.sets.splice(setIndex, 1);
+      onUpdate(updated);
+    }
+  };
+
+  const addExercise = (name: string = newExercise.name, category: string = newExercise.category, equipment: EquipmentType = newExercise.equipment) => {
+    if (!activeWorkout || !name.trim()) return;
+    
+    // Check if exercise already in current session
+    if (activeWorkout.exercises.some(e => e.name.toLowerCase() === name.toLowerCase())) return;
+
+    const finalCategory = category || 'Push';
+    
+    // Find exercise definition for recommendations
+    const definition = availableExercises.find(ex => ex.name.toLowerCase() === name.toLowerCase())
+                    || COMMON_EXERCISES.find(ex => ex.name.toLowerCase() === name.toLowerCase());
+    
+    // Check if this is a brand new exercise
+    if (!definition && !availableExercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
+      onNewExerciseCreated({ name: name.trim(), category: finalCategory });
+    }
+
+    const isTimed = ['Cardio', 'Active Recovery'].includes(finalCategory);
+    const prevStats = findPreviousStats(name);
+    const finalEquipment = definition?.equipment || (isTimed ? 'bodyweight' : equipment);
+
+    // Calculate max weight from previous stats if available
+    let maxPrevWeight = 0;
+    if (prevStats && !isTimed) {
+      maxPrevWeight = Math.max(...prevStats.map(s => s.weight || 0));
+    }
+
+    const exercise: Exercise = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: name.trim(),
+      category: finalCategory,
+      equipment: finalEquipment,
+      previousStats: prevStats,
+      sets: isTimed ? 
+        (prevStats ? prevStats.map(s => ({ durationMinutes: s.durationMinutes, isCompleted: false })) : 
+         (definition?.recommendedSets ? definition.recommendedSets.map(s => ({ durationMinutes: s.durationMinutes, isCompleted: false })) :
+          [{ durationMinutes: 0, isCompleted: false }])) :
+        (prevStats ? prevStats.map(s => ({ reps: s.reps || 10, weight: maxPrevWeight, isCompleted: false })) : 
+          (definition?.recommendedSets ? definition.recommendedSets.map(s => ({ reps: s.reps, weight: s.weight, isCompleted: false })) : [
+            { reps: 10, weight: 0, isCompleted: false },
+            { reps: 10, weight: 0, isCompleted: false },
+            { reps: 10, weight: 0, isCompleted: false }
+          ]))
+    };
+
+    onUpdate({
+      ...activeWorkout,
+      exercises: [...activeWorkout.exercises, exercise]
+    });
+    setNewExercise({ name: '', category: 'Chest', equipment: 'barbell' });
+    setIsAdding(false);
+  };
+
+  const recommendations = useMemo(() => {
+    const splitLabel = splitDay?.label.toLowerCase() || '';
+    
+    // Mapping split types to relevant categories
+    const categoryMap: Record<string, string[]> = {
+      push: ['Chest', 'Shoulders', 'Arms'],
+      pull: ['Back', 'Arms'],
+      legs: ['Legs'],
+      upper: ['Chest', 'Back', 'Shoulders', 'Arms'],
+      lower: ['Legs', 'Core'],
+      'full body': ['Chest', 'Back', 'Legs', 'Shoulders'],
+      strength: ['Chest', 'Back', 'Legs', 'Shoulders'],
+      condition: ['Cardio'],
+      endurance: ['Cardio'],
+      mobility: ['Active Recovery'],
+      recovery: ['Active Recovery'],
+      rest: ['Active Recovery']
+    };
+
+    const targetCategories = Object.keys(categoryMap).find(k => splitLabel.includes(k))
+      ? categoryMap[Object.keys(categoryMap).find(k => splitLabel.includes(k))!]
+      : [];
+
+    if (targetCategories.length === 0) return availableExercises.slice(0, 5);
+
+    // Filter available exercises to match categories
+    const filtered = availableExercises.filter(ex => 
+      targetCategories.includes(ex.category) && 
+      (!activeWorkout || !activeWorkout.exercises.some(e => e.name === ex.name))
+    );
+
+    // If we have plenty, take a random sample of 6
+    return filtered.sort(() => 0.5 - Math.random()).slice(0, 6);
+  }, [splitDay, availableExercises, activeWorkout]);
+
+  const categoriesInSession = useMemo(() => {
+    if (!activeWorkout) return ['All'];
+    const cats = new Set(activeWorkout.exercises.map(e => e.category));
+    return ['All', ...Array.from(cats)];
+  }, [activeWorkout]);
+
+  const filteredExercises = useMemo(() => {
+    if (!activeWorkout) return {};
+    return activeWorkout.exercises.reduce((acc: Record<string, Exercise[]>, ex) => {
+      if (viewFilter !== 'All' && ex.category !== viewFilter) return acc;
+      const cat = ex.category || 'General';
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(ex);
+      return acc;
+    }, {} as Record<string, Exercise[]>);
+  }, [activeWorkout, viewFilter]);
+
+  const uniqueWorkoutNames = useMemo(() => {
+    const names = new Set(completedWorkouts.map(w => w.name));
+    return ['All', ...Array.from(names)];
+  }, [completedWorkouts]);
+
+  const displayedHistory = useMemo(() => {
+    let filtered = [...completedWorkouts];
+
+    // Date filtering
+    if (historyDateRange !== 'all') {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - Number(historyDateRange));
+      filtered = filtered.filter(w => new Date(w.date) >= cutoff);
+    }
+
+    // Type filtering
+    if (historyTypeFilter !== 'All') {
+      filtered = filtered.filter(w => w.name === historyTypeFilter);
+    }
+
+    return filtered;
+  }, [completedWorkouts, historyDateRange, historyTypeFilter]);
+
+  const filteredSuggestions = useMemo(() => {
+    if (!newExercise.name.trim()) return [];
+    const lowerName = newExercise.name.toLowerCase();
+    const matches = availableExercises.filter(ex => 
+      ex.name.toLowerCase().includes(lowerName) ||
+      ex.category.toLowerCase().includes(lowerName)
+    ).slice(0, 5);
+    
+    return matches;
+  }, [newExercise.name, availableExercises]);
+
+  const showCreateNew = useMemo(() => {
+    if (!newExercise.name.trim()) return false;
+    return !availableExercises.some(ex => ex.name.toLowerCase() === newExercise.name.toLowerCase());
+  }, [newExercise.name, availableExercises]);
+
+  const handleFinishSession = () => {
+    if (!activeWorkout) return;
+    onUpdate({ ...activeWorkout, completed: true });
+    setView('history');
+  };
+
+  return (
+    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-24">
+      {/* View Toggle */}
+      <div className="bg-stone-100 p-1 rounded-2xl flex">
+        <button 
+          onClick={() => setView('active')}
+          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${
+            view === 'active' ? 'bg-white text-[#7c9082] shadow-sm' : 'text-stone-400'
+          }`}
+        >
+          {activeWorkout ? 'Active Session' : 'Start Session'}
+        </button>
+        <button 
+          onClick={() => setView('history')}
+          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${
+            view === 'history' ? 'bg-white text-[#7c9082] shadow-sm' : 'text-stone-400'
+          }`}
+        >
+          History
+        </button>
+      </div>
+
+      {view === 'active' ? (
+        !activeWorkout ? (
+          <div className="py-20 text-center space-y-6">
+            <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mx-auto text-3xl">
+              💪
+            </div>
+            <div>
+              <h3 className="serif text-xl text-stone-800">Ready to move?</h3>
+              <p className="text-sm text-stone-400 mt-1">Today is your <span className="font-bold text-[#7c9082]">{splitDay.label}</span> day.</p>
+            </div>
+            <button 
+              onClick={() => onStart(`${splitDay.label} Session`)}
+              className="px-10 py-4 bg-[#7c9082] text-white rounded-full font-semibold text-sm shadow-xl shadow-[#7c9082]/20 active:scale-95 transition-all"
+            >
+              Start Workout
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            <header className="flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#d4a373]">{todayDisplayStr}</span>
+                  <span className="text-[10px] font-bold text-stone-300">•</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#7c9082]">{splitDay.label} Day</span>
+                </div>
+                <h2 className="serif text-2xl text-stone-800">{activeWorkout.name}</h2>
+              </div>
+              <button 
+                onClick={() => setIsAdding(!isAdding)}
+                className="w-10 h-10 rounded-full bg-[#7c9082] flex items-center justify-center text-white hover:bg-[#6b7d70] transition-all shadow-lg"
+              >
+                <span className="text-xl">{isAdding ? '✕' : '+'}</span>
+              </button>
+            </header>
+
+            {/* Recommendations Bar */}
+            {!isAdding && recommendations.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400 ml-1">Suggested for {splitDay.label}</h3>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 px-1">
+                  {recommendations.map((ex, i) => (
+                    <div key={i} className="relative group">
+                      <button
+                        onClick={() => addExercise(ex.name, ex.category)}
+                        className="bg-white border border-stone-100 px-4 py-3 rounded-2xl shadow-sm flex flex-col items-start min-w-[140px] hover:border-[#7c9082] transition-colors"
+                      >
+                        <span className="text-xs font-bold text-stone-700 leading-tight mb-1 group-hover:text-[#7c9082] transition-colors">{ex.name}</span>
+                        <span className="text-[9px] font-bold uppercase tracking-tighter text-stone-300">{ex.category}</span>
+                      </button>
+                      
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-stone-800 text-white text-[8px] font-bold uppercase tracking-widest rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30">
+                        {ex.equipment ? `${EQUIPMENT_CONFIG[ex.equipment].icon} ${EQUIPMENT_CONFIG[ex.equipment].label}` : 'No Equipment Info'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeWorkout.exercises.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                {categoriesInSession.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setViewFilter(cat)}
+                    className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
+                      viewFilter === cat ? 'bg-[#7c9082] text-white' : 'bg-stone-50 text-stone-400'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {isAdding && (
+              <div className="bg-white rounded-3xl p-6 border-2 border-[#7c9082]/20 shadow-xl animate-in fade-in zoom-in-95">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Add Exercise</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search or name a new lift..."
+                      className="w-full bg-stone-50 p-4 rounded-2xl text-sm focus:outline-none border border-stone-100"
+                      value={newExercise.name}
+                      onChange={e => setNewExercise({ ...newExercise, name: e.target.value })}
+                      autoFocus
+                    />
+                    {(filteredSuggestions.length > 0 || showCreateNew) && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-stone-100 rounded-2xl shadow-xl overflow-hidden z-20 max-h-60 overflow-y-auto">
+                        {filteredSuggestions.map((sug, i) => (
+                          <button
+                            key={i}
+                            onClick={() => addExercise(sug.name, sug.category)}
+                            className="w-full text-left px-4 py-3 hover:bg-stone-50 flex justify-between items-center border-b border-stone-50 last:border-0"
+                          >
+                            <span className="text-sm font-medium text-stone-700">{sug.name}</span>
+                            <span className="text-[10px] bg-stone-100 px-2 py-0.5 rounded-full text-stone-400 uppercase tracking-tighter">{sug.category}</span>
+                          </button>
+                        ))}
+                        {showCreateNew && (
+                          <button
+                            onClick={() => addExercise()}
+                            className="w-full text-left px-4 py-3 bg-[#7c9082]/5 hover:bg-[#7c9082]/10 flex justify-between items-center"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-[#7c9082]">Create "{newExercise.name}"</span>
+                            </div>
+                            <span className="text-[9px] font-bold text-[#7c9082] uppercase tracking-widest bg-white px-2 py-0.5 rounded-full shadow-sm">Custom</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-stone-300 uppercase tracking-widest ml-1">Category</label>
+                      <select
+                        className="w-full bg-stone-50 p-3 rounded-xl text-xs outline-none border border-stone-100 font-medium text-stone-600 appearance-none"
+                        value={newExercise.category}
+                        onChange={e => setNewExercise({ ...newExercise, category: e.target.value })}
+                      >
+                        <option value="Chest">Chest</option>
+                        <option value="Back">Back</option>
+                        <option value="Legs">Legs</option>
+                        <option value="Shoulders">Shoulders</option>
+                        <option value="Arms">Arms</option>
+                        <option value="Core">Core</option>
+                        <option value="Cardio">Cardio</option>
+                        <option value="Active Recovery">Active Recovery</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-stone-300 uppercase tracking-widest ml-1">Equipment</label>
+                      <select
+                        className="w-full bg-stone-50 p-3 rounded-xl text-xs outline-none border border-stone-100 font-medium text-stone-600 appearance-none"
+                        value={newExercise.equipment}
+                        onChange={e => setNewExercise({ ...newExercise, equipment: e.target.value as EquipmentType })}
+                      >
+                        {Object.entries(EQUIPMENT_CONFIG).map(([key, config]) => (
+                          <option key={key} value={key}>{config.icon} {config.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => addExercise()}
+                    disabled={!newExercise.name.trim()}
+                    className="w-full bg-[#7c9082] text-white py-4 rounded-2xl text-sm font-bold shadow-md shadow-[#7c9082]/20 disabled:opacity-50"
+                  >
+                    Add Exercise
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-10">
+              {(Object.entries(filteredExercises) as [string, Exercise[]][]).map(([category, exercises]) => (
+                <div key={category} className="space-y-4">
+                  <div className="flex items-center gap-3 px-2">
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#d4a373]">{category}</h3>
+                    <div className="h-px flex-1 bg-stone-100"></div>
+                  </div>
+                  {exercises.map((exercise) => {
+                    const isTimed = ['Cardio', 'Active Recovery'].includes(exercise.category);
+                    return (
+                      <div key={exercise.id} className="bg-white rounded-3xl p-6 border border-stone-100 shadow-sm relative">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="space-y-1">
+                            <h3 className="font-semibold text-stone-700">{exercise.name}</h3>
+                            {!isTimed && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-bold uppercase text-[#7c9082] bg-[#7c9082]/5 px-2 py-0.5 rounded-full">
+                                  {EQUIPMENT_CONFIG[exercise.equipment || 'barbell'].icon} {EQUIPMENT_CONFIG[exercise.equipment || 'barbell'].label}
+                                </span>
+                                <select 
+                                  className="text-[9px] font-bold uppercase text-stone-300 bg-transparent border-none outline-none appearance-none cursor-pointer hover:text-stone-400"
+                                  value={exercise.equipment || 'barbell'}
+                                  onChange={(e) => handleEquipmentChange(exercise.id, e.target.value as EquipmentType)}
+                                >
+                                  {Object.entries(EQUIPMENT_CONFIG).map(([key, config]) => (
+                                    <option key={key} value={key}>Change to {config.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                          <button onClick={() => setEditingId(editingId === exercise.id ? null : exercise.id)} className="text-stone-300">•••</button>
+                        </div>
+                        {editingId === exercise.id && (
+                          <div className="absolute right-6 top-14 bg-white border border-stone-200 shadow-xl rounded-xl p-1 z-10">
+                            <button onClick={() => {
+                              onUpdate({...activeWorkout, exercises: activeWorkout.exercises.filter(e => e.id !== exercise.id)});
+                              setEditingId(null);
+                            }} className="text-red-500 text-xs px-4 py-2 hover:bg-red-50 w-full text-left font-medium">Remove</button>
+                          </div>
+                        )}
+                        <div className={`grid ${isTimed ? 'grid-cols-4' : 'grid-cols-5'} gap-2 mb-2 text-[9px] font-bold uppercase tracking-widest text-stone-300 px-2`}>
+                          <div>{isTimed ? 'RND' : 'SET'}</div>
+                          <div>PREV</div>
+                          {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div></>}
+                          <div></div>
+                        </div>
+                        <div className="space-y-2">
+                          {exercise.sets.map((set, idx) => {
+                            const prev = exercise.previousStats?.[idx];
+                            return (
+                              <div key={idx} className={`grid ${isTimed ? 'grid-cols-4' : 'grid-cols-5'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
+                                <div className="text-[10px] font-bold text-stone-400">#{idx + 1}</div>
+                                <div className="text-[8px] text-stone-300 font-medium">
+                                  {prev ? (isTimed ? `${prev.durationMinutes}m` : `${prev.weight}x${prev.reps}`) : '--'}
+                                </div>
+                                {isTimed ? (
+                                  <input type="number" className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.durationMinutes || ''} onChange={(e) => handleSetChange(exercise.id, idx, 'durationMinutes', e.target.value)} />
+                                ) : (
+                                  <>
+                                    <input type="number" className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.weight || ''} onChange={(e) => handleSetChange(exercise.id, idx, 'weight', e.target.value)} />
+                                    <input type="number" className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.reps || ''} onChange={(e) => handleSetChange(exercise.id, idx, 'reps', e.target.value)} />
+                                  </>
+                                )}
+                                <div className="flex justify-end gap-1">
+                                  <button onClick={() => removeSet(exercise.id, idx)} className="w-5 h-5 text-stone-200">✕</button>
+                                  <button onClick={() => toggleSetComplete(exercise.id, idx)} className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${set.isCompleted ? 'bg-[#7c9082] text-white' : 'bg-white border border-stone-100 text-stone-100'}`}>{set.isCompleted ? '✓' : ''}</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <button onClick={() => addSet(exercise.id)} className="w-full mt-4 py-2 text-[10px] font-bold text-[#7c9082] uppercase">+ Add {isTimed ? 'Round' : 'Set'}</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            <button 
+              onClick={handleFinishSession}
+              className="w-full bg-[#7c9082] text-white py-5 rounded-3xl font-semibold shadow-xl shadow-[#7c9082]/20 hover:bg-[#6b7d70] transition-all"
+            >
+              Finish & Log Session
+            </button>
+          </div>
+        )
+      ) : (
+        <div className="space-y-6">
+          <header>
+            <h3 className="serif text-xl text-stone-800">Your Journey</h3>
+            <p className="text-sm text-stone-400">Past sessions and performance history.</p>
+          </header>
+
+          {/* History Filters UI */}
+          <div className="space-y-4">
+            {/* Date Range Filters */}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              {[
+                { label: 'All Time', value: 'all' },
+                { label: 'Last 7 Days', value: '7' },
+                { label: 'Last 30 Days', value: '30' }
+              ].map((range) => (
+                <button
+                  key={range.value}
+                  onClick={() => setHistoryDateRange(range.value as any)}
+                  className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-all border ${
+                    historyDateRange === range.value 
+                      ? 'bg-[#7c9082] border-[#7c9082] text-white shadow-md' 
+                      : 'bg-white border-stone-100 text-stone-400'
+                  }`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Type Filters */}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              {uniqueWorkoutNames.map((name) => (
+                <button
+                  key={name}
+                  onClick={() => setHistoryTypeFilter(name)}
+                  className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-all border ${
+                    historyTypeFilter === name 
+                      ? 'bg-[#d4a373] border-[#d4a373] text-white shadow-md' 
+                      : 'bg-white border-stone-100 text-stone-400'
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {displayedHistory.length === 0 ? (
+            <div className="py-20 text-center text-stone-300 italic text-sm border-2 border-dashed border-stone-50 rounded-[2.5rem]">
+              No workouts found with these filters.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {displayedHistory.map((workout: Workout) => (
+                <div key={workout.id} className="bg-white p-5 rounded-3xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow group">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h4 className="font-semibold text-stone-700 group-hover:text-[#7c9082] transition-colors">{workout.name}</h4>
+                      <p className="text-[10px] text-stone-400 font-medium">
+                        {new Date(workout.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <span className="text-[10px] bg-stone-50 px-2 py-1 rounded-full text-stone-400 font-bold uppercase">
+                      {(workout.exercises?.length || 0)} lifts
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {workout.exercises && workout.exercises.map((ex: Exercise, i: number) => (
+                      <span key={i} className="text-[9px] bg-stone-50 text-stone-500 px-2 py-1 rounded-lg flex items-center gap-1">
+                        {ex.equipment && <span>{EQUIPMENT_CONFIG[ex.equipment].icon}</span>}
+                        {ex.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default WorkoutTracker;
