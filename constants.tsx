@@ -1,6 +1,9 @@
 
 import React from 'react';
 import { AppState, Goal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType } from './types';
+import { getTodayString } from './utils/dateUtils';
+
+const todayString = getTodayString();
 
 export const COMMON_EXERCISES: ExerciseDefinition[] = [
   // Chest
@@ -162,15 +165,15 @@ export const INITIAL_STATE: AppState = {
   hydration: [],
   cycle: [],
   cycleConfig: {
-    lastStartDate: new Date().toISOString().split('T')[0],
+    lastStartDate: todayString,
     cycleLength: 28
   },
   availableExercises: COMMON_EXERCISES,
   weeklySplit: SPLIT_TEMPLATES[0].days,
   selectedTemplateId: 'ppl-6',
   dailyHydrationGoal: 64,
-  hydrationGoals: { [new Date().toISOString().split('T')[0]]: 64 },
-  todayStr: new Date().toISOString().split('T')[0]
+  hydrationGoals: { [todayString]: 64 },
+  todayStr: todayString
 };
 
 export const MOOD_CONFIG: Record<string, { emoji: string; color: string }> = {
