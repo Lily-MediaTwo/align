@@ -84,13 +84,16 @@ const App: React.FC = () => {
   }, [state, dayTick]);
 
   const addHydration = (oz: number) => {
+    if (!Number.isFinite(oz) || oz <= 0) return;
+
+    const normalizedAmount = Math.round(oz);
     const now = new Date();
     const localDateStr = getTodayString();
     
     const newLog: HydrationLog = {
       id: Math.random().toString(36).substr(2, 9),
       date: localDateStr,
-      amountOz: oz,
+      amountOz: normalizedAmount,
       timestamp: now.toISOString()
     };
     setState(prev => ({
@@ -100,12 +103,14 @@ const App: React.FC = () => {
   };
 
   const updateHydrationGoal = (goal: number) => {
+    const normalizedGoal = Math.max(1, Math.round(goal));
+
     setState(prev => ({
       ...prev,
-      dailyHydrationGoal: goal,
+      dailyHydrationGoal: normalizedGoal,
       hydrationGoals: {
         ...prev.hydrationGoals,
-        [dayTick]: goal
+        [dayTick]: normalizedGoal
       }
     }));
   };
