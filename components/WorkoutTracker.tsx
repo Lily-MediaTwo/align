@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Workout, Exercise, ExerciseDefinition, SplitDay, SetLog, EquipmentType } from '../types';
 import { EQUIPMENT_CONFIG, COMMON_EXERCISES } from '../constants';
+import { formatLocalDate, getDateDaysAgo, isOnOrAfterDate, parseDayString } from '../utils/dateUtils';
 
 interface WorkoutTrackerProps {
   activeWorkout?: Workout;
@@ -40,12 +41,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const [historyDateRange, setHistoryDateRange] = useState<'all' | '7' | '30'>('all');
   const [historyTypeFilter, setHistoryTypeFilter] = useState<string>('All');
 
-  const today = new Date();
-  const [y, m, d] = todayStr.split('-').map(Number);
-  const localToday = new Date(y, m - 1, d);
+  const localToday = parseDayString(todayStr);
   const dayIndex = (localToday.getDay() + 6) % 7;
   const splitDay = weeklySplit[dayIndex];
-  const todayDisplayStr = localToday.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const todayDisplayStr = formatLocalDate(localToday, { weekday: 'long', month: 'long', day: 'numeric' }, 'en-US');
 
   const findPreviousStats = (exerciseName: string) => {
     const sortedHistory = [...allHistory].filter(w => w.completed).sort((a, b) => 
@@ -244,9 +243,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
     // Date filtering
     if (historyDateRange !== 'all') {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - Number(historyDateRange));
-      filtered = filtered.filter(w => new Date(w.date) >= cutoff);
+      const cutoff = getDateDaysAgo(Number(historyDateRange));
+      filtered = filtered.filter(w => isOnOrAfterDate(w.date, cutoff));
     }
 
     // Type filtering
@@ -611,7 +609,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                     <div>
                       <h4 className="font-semibold text-stone-700 group-hover:text-[#7c9082] transition-colors">{workout.name}</h4>
                       <p className="text-[10px] text-stone-400 font-medium">
-                        {new Date(workout.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {formatLocalDate(workout.date, { month: 'short', day: 'numeric', year: 'numeric' }, 'en-US')}
                       </p>
                     </div>
                     <span className="text-[10px] bg-stone-50 px-2 py-1 rounded-full text-stone-400 font-bold uppercase">
