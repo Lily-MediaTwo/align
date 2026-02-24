@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { HydrationLog } from '../types';
+import { formatLocalTime, getLastNDays } from '../utils/dateUtils';
 
 interface HydrationPacerProps {
   logs: HydrationLog[];
@@ -40,22 +41,19 @@ const HydrationPacer: React.FC<HydrationPacerProps> = ({ logs, dailyGoal, hydrat
   // History Calculation (Last 7 Days)
   const history = useMemo(() => {
     const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const offset = d.getTimezoneOffset();
-      const dStr = new Date(d.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
-      const dayLogs = logs.filter(l => l.date === dStr);
+    getLastNDays(7).forEach((dayString) => {
+      const day = new Date(`${dayString}T12:00:00`);
+      const dayLogs = logs.filter(l => l.date === dayString);
       const dayTotal = dayLogs.reduce((sum, l) => sum + l.amountOz, 0);
-      const goalForDay = (hydrationGoals && hydrationGoals[dStr]) || dailyGoal;
+      const goalForDay = (hydrationGoals && hydrationGoals[dayString]) || dailyGoal;
       days.push({
-        date: dStr,
-        dayName: d.toLocaleDateString(undefined, { weekday: 'short' }),
+        date: dayString,
+        dayName: day.toLocaleDateString(undefined, { weekday: 'short' }),
         total: dayTotal,
         goal: goalForDay,
         success: goalForDay > 0 && dayTotal >= goalForDay
       });
-    }
+    });
     return days;
   }, [logs, dailyGoal, hydrationGoals]);
 
@@ -78,7 +76,7 @@ const HydrationPacer: React.FC<HydrationPacerProps> = ({ logs, dailyGoal, hydrat
     <div className="space-y-12 animate-in fade-in duration-500 pb-12">
       <header className="text-center">
         <h2 className="serif text-2xl text-stone-800">Steady Pacing</h2>
-        <p className="text-[9px] text-stone-300 font-bold uppercase tracking-widest mt-1">Updated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+        <p className="text-[9px] text-stone-300 font-bold uppercase tracking-widest mt-1">Updated {formatLocalTime(new Date(), { hour: '2-digit', minute: '2-digit' })}</p>
         <p className="text-sm text-stone-400 mt-2 italic">
           {isBehind ? "A small sip would put you back on track." : "You're perfectly on pace."}
         </p>
@@ -208,7 +206,7 @@ const HydrationPacer: React.FC<HydrationPacerProps> = ({ logs, dailyGoal, hydrat
               <div key={log.id} className="flex justify-between items-center bg-stone-50/50 px-4 py-3 rounded-2xl border border-stone-100/50">
                 <span className="text-sm text-stone-600 font-medium">{log.amountOz}oz sip</span>
                 <span className="text-[10px] text-stone-400 font-bold uppercase">
-                  {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {formatLocalTime(log.timestamp, { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             ))
