@@ -89,17 +89,29 @@ const App: React.FC = () => {
     const normalizedAmount = Math.round(oz);
     const now = new Date();
     const localDateStr = getTodayString();
-    
-    const newLog: HydrationLog = {
-      id: Math.random().toString(36).substr(2, 9),
-      date: localDateStr,
-      amountOz: normalizedAmount,
-      timestamp: now.toISOString()
-    };
-    setState(prev => ({
-      ...prev,
-      hydration: [...prev.hydration, newLog]
-    }));
+
+    setState(prev => {
+      const latestLog = prev.hydration[prev.hydration.length - 1];
+      if (latestLog) {
+        const secondsSinceLast = (now.getTime() - new Date(latestLog.timestamp).getTime()) / 1000;
+        const isLikelyDuplicate = secondsSinceLast <= 2 && latestLog.amountOz === normalizedAmount && latestLog.date === localDateStr;
+        if (isLikelyDuplicate) {
+          return prev;
+        }
+      }
+
+      const newLog: HydrationLog = {
+        id: Math.random().toString(36).substr(2, 9),
+        date: localDateStr,
+        amountOz: normalizedAmount,
+        timestamp: now.toISOString()
+      };
+
+      return {
+        ...prev,
+        hydration: [...prev.hydration, newLog]
+      };
+    });
   };
 
   const updateHydrationGoal = (goal: number) => {

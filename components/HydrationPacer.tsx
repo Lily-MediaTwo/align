@@ -12,10 +12,13 @@ interface HydrationPacerProps {
   onUpdateGoal: (oz: number) => void;
 }
 
+const QUICK_AMOUNTS = [8, 12, 16, 20];
+
 const HydrationPacer: React.FC<HydrationPacerProps> = ({ logs, dailyGoal, hydrationGoals, todayStr, onAdd, onUpdateGoal }) => {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [tempGoal, setTempGoal] = useState(dailyGoal);
   const [isLogging, setIsLogging] = useState(false);
+  const [customAmount, setCustomAmount] = useState('24');
 
   // Sync tempGoal if dailyGoal changes externally
   React.useEffect(() => {
@@ -61,13 +64,15 @@ const HydrationPacer: React.FC<HydrationPacerProps> = ({ logs, dailyGoal, hydrat
     };
   }, [dailyGoal, hydrationGoals]);
 
-  // History Calculation (Last 7 Days)
-  const history = useMemo(() => {
-    const totalsByDay = logs.reduce<Record<string, number>>((acc, log) => {
+  const totalsByDay = useMemo(() => {
+    return logs.reduce<Record<string, number>>((acc, log) => {
       acc[log.date] = (acc[log.date] || 0) + log.amountOz;
       return acc;
     }, {});
+  }, [logs]);
 
+  // History Calculation (Last 7 Days)
+  const history = useMemo(() => {
     return getLastNDays(7).map((dayString) => {
       const dayTotal = totalsByDay[dayString] || 0;
       const goalForDay = resolvedGoalByDay(dayString);
@@ -79,7 +84,20 @@ const HydrationPacer: React.FC<HydrationPacerProps> = ({ logs, dailyGoal, hydrat
         success: goalForDay > 0 && dayTotal >= goalForDay,
       };
     });
-  }, [logs, resolvedGoalByDay]);
+  }, [totalsByDay, resolvedGoalByDay]);
+
+  const trendStats = useMemo(() => {
+    const last14 = getLastNDays(14).map((dayString) => {
+      const total = totalsByDay[dayString] || 0;
+      const goal = resolvedGoalByDay(dayString);
+      return { total, goal, success: goal > 0 && total >= goal };
+    });
+
+    const daysHitGoal = last14.filter(day => day.success).length;
+    const avgOz = Math.round(last14.reduce((sum, day) => sum + day.total, 0) / Math.max(last14.length, 1));
+
+    return { daysHitGoal, avgOz };
+  }, [totalsByDay, resolvedGoalByDay]);
 
   const handleUpdateGoal = () => {
     const normalizedGoal = Math.max(1, Math.round(tempGoal));
@@ -92,6 +110,12 @@ const HydrationPacer: React.FC<HydrationPacerProps> = ({ logs, dailyGoal, hydrat
     setIsLogging(true);
     onAdd(oz);
     setTimeout(() => setIsLogging(false), 500); // 500ms cooldown
+  };
+
+  const handleCustomAdd = () => {
+    const parsedAmount = parseInt(customAmount, 10);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
+    handleAdd(parsedAmount);
   };
 
   const radius = 85;
@@ -170,25 +194,39 @@ const HydrationPacer: React.FC<HydrationPacerProps> = ({ logs, dailyGoal, hydrat
       )}
 
       {/* Manual Logging */}
-      <div className="grid grid-cols-2 gap-4">
-        <button
-          onClick={() => handleAdd(8)}
-          disabled={isLogging}
-          className={`bg-white border border-stone-100 p-6 rounded-3xl shadow-sm hover:border-[#7c9082] transition-colors group text-left ${isLogging ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <span className="text-2xl block mb-2 group-hover:scale-110 transition-transform">💧</span>
-          <span className="text-xs font-bold uppercase tracking-widest text-stone-300 block mb-1">Small</span>
-          <span className="text-sm font-medium text-stone-600">8oz Glass</span>
-        </button>
-        <button
-          onClick={() => handleAdd(20)}
-          disabled={isLogging}
-          className={`bg-white border border-stone-100 p-6 rounded-3xl shadow-sm hover:border-[#7c9082] transition-colors group text-left ${isLogging ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <span className="text-2xl block mb-2 group-hover:scale-110 transition-transform">🧴</span>
-          <span className="text-xs font-bold uppercase tracking-widest text-stone-300 block mb-1">Large</span>
-          <span className="text-sm font-medium text-stone-600">20oz Bottle</span>
-        </button>
+      <div className="grid grid-cols-2 gap-3">
+        {QUICK_AMOUNTS.map((amount) => (
+          <button
+            key={amount}
+            onClick={() => handleAdd(amount)}
+            disabled={isLogging}
+            className={`bg-white border border-stone-100 p-5 rounded-3xl shadow-sm hover:border-[#7c9082] transition-colors group text-left ${isLogging ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <span className="text-xs font-bold uppercase tracking-widest text-stone-300 block mb-1">Quick Add</span>
+            <span className="text-lg font-medium text-stone-700">+{amount}oz</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-white border border-stone-100 p-4 rounded-3xl space-y-3">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Custom amount</p>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            min={1}
+            value={customAmount}
+            onChange={(e) => setCustomAmount(e.target.value)}
+            className="flex-1 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3 text-sm"
+            placeholder="oz"
+          />
+          <button
+            onClick={handleCustomAdd}
+            disabled={isLogging}
+            className={`bg-[#7c9082] text-white px-5 rounded-2xl text-sm font-bold ${isLogging ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            Add
+          </button>
+        </div>
       </div>
 
       {/* History Visualization */}
@@ -221,13 +259,26 @@ const HydrationPacer: React.FC<HydrationPacerProps> = ({ logs, dailyGoal, hydrat
         </div>
       </section>
 
+      <section className="grid grid-cols-2 gap-3">
+        <div className="bg-[#f0f4f1] p-4 rounded-2xl border border-[#7c9082]/10">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-[#7c9082]">14-day consistency</p>
+          <p className="text-2xl font-light text-stone-700 mt-1">{trendStats.daysHitGoal}/14</p>
+          <p className="text-[10px] text-stone-400">days hit goal</p>
+        </div>
+        <div className="bg-[#fcf8f4] p-4 rounded-2xl border border-[#d4a373]/10">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-[#d4a373]">14-day average</p>
+          <p className="text-2xl font-light text-stone-700 mt-1">{trendStats.avgOz}oz</p>
+          <p className="text-[10px] text-stone-400">per day</p>
+        </div>
+      </section>
+
       <section>
         <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-4 px-2">Recent Logs</h3>
         <div className="space-y-2">
           {todayLogs.length === 0 ? (
             <p className="text-center text-xs text-stone-300 py-4">No water logged yet today.</p>
           ) : (
-            todayLogs.slice(0, 3).map(log => (
+            todayLogs.slice(0, 5).map(log => (
               <div key={log.id} className="flex justify-between items-center bg-stone-50/50 px-4 py-3 rounded-2xl border border-stone-100/50">
                 <span className="text-sm text-stone-600 font-medium">{log.amountOz}oz sip</span>
                 <span className="text-[10px] text-stone-400 font-bold uppercase">
