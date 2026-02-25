@@ -214,8 +214,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
   const recommendations = useMemo(() => {
     const splitLabel = splitDay?.label.toLowerCase() || '';
-    
-    // Mapping split types to relevant categories
+
     const categoryMap: Record<string, string[]> = {
       push: ['Chest', 'Shoulders', 'Arms'],
       pull: ['Back', 'Arms'],
@@ -231,23 +230,49 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       rest: ['Active Recovery']
     };
 
-    const targetCategories = Object.keys(categoryMap).find(k => splitLabel.includes(k))
-      ? categoryMap[Object.keys(categoryMap).find(k => splitLabel.includes(k))!]
-      : [];
+    const matchedSplitKey = Object.keys(categoryMap).find(k => splitLabel.includes(k));
+    const targetCategories = matchedSplitKey ? categoryMap[matchedSplitKey] : [];
 
-    if (targetCategories.length === 0) return availableExercises.slice(0, 5);
+    const exercisesInSession = new Set((activeWorkout?.exercises || []).map(e => e.name.toLowerCase()));
+    const recentCompleted = allHistory
+      .filter(w => w.completed)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 10);
 
-    // Filter available exercises to match categories
-    const filtered = availableExercises.filter(ex => 
-      targetCategories.includes(ex.category) && 
-      (!activeWorkout || !activeWorkout.exercises.some(e => e.name === ex.name))
-    );
+    const frequencyByName = recentCompleted.reduce<Record<string, number>>((acc, workout) => {
+      workout.exercises.forEach(ex => {
+        const key = ex.name.toLowerCase();
+        acc[key] = (acc[key] || 0) + 1;
+      });
+      return acc;
+    }, {});
 
-    // Deterministic ordering keeps suggestions stable between renders
-    return filtered
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 6);
-  }, [splitDay, availableExercises, activeWorkout]);
+    const latestIndexByName = recentCompleted.reduce<Record<string, number>>((acc, workout, index) => {
+      workout.exercises.forEach(ex => {
+        const key = ex.name.toLowerCase();
+        if (acc[key] === undefined) acc[key] = index;
+      });
+      return acc;
+    }, {});
+
+    const basePool = availableExercises.filter(ex => !exercisesInSession.has(ex.name.toLowerCase()));
+
+    const scored = basePool
+      .filter(ex => targetCategories.length === 0 || targetCategories.includes(ex.category))
+      .map(ex => {
+        const key = ex.name.toLowerCase();
+        const frequencyPenalty = frequencyByName[key] || 0;
+        const recencyPenalty = latestIndexByName[key] === undefined ? 0 : (10 - latestIndexByName[key]);
+        const categoryBonus = targetCategories.includes(ex.category) ? 30 : 0;
+        const novelBonus = frequencyByName[key] ? 0 : 12;
+
+        const score = categoryBonus + novelBonus - (frequencyPenalty * 6) - recencyPenalty;
+        return { exercise: ex, score };
+      })
+      .sort((a, b) => b.score - a.score || a.exercise.name.localeCompare(b.exercise.name));
+
+    return scored.slice(0, 6).map(item => item.exercise);
+  }, [splitDay, availableExercises, activeWorkout, allHistory]);
 
   const categoriesInSession = useMemo(() => {
     if (!activeWorkout) return ['All'];
@@ -287,6 +312,44 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
     return filtered;
   }, [completedWorkouts, historyDateRange, historyTypeFilter]);
+
+  const progressionByWorkoutId = useMemo(() => {
+    const completed = allHistory
+      .filter(w => w.completed)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const latestMetricsByExercise: Record<string, { bestWeight: number; bestReps: number; totalDuration: number }> = {};
+    const result: Record<string, string[]> = {};
+
+    completed.forEach((workout) => {
+      const notes: string[] = [];
+
+      workout.exercises.forEach((exercise) => {
+        const key = exercise.name.toLowerCase();
+        const previous = latestMetricsByExercise[key];
+
+        const bestWeight = Math.max(...exercise.sets.map(s => s.weight || 0), 0);
+        const bestReps = Math.max(...exercise.sets.map(s => s.reps || 0), 0);
+        const totalDuration = exercise.sets.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+
+        if (previous) {
+          if (bestWeight > previous.bestWeight) {
+            notes.push(`${exercise.name} +${(bestWeight - previous.bestWeight).toFixed(1)} lb`);
+          } else if (bestReps > previous.bestReps) {
+            notes.push(`${exercise.name} +${bestReps - previous.bestReps} reps`);
+          } else if (totalDuration > previous.totalDuration) {
+            notes.push(`${exercise.name} +${totalDuration - previous.totalDuration} min`);
+          }
+        }
+
+        latestMetricsByExercise[key] = { bestWeight, bestReps, totalDuration };
+      });
+
+      result[workout.id] = notes.slice(0, 2);
+    });
+
+    return result;
+  }, [allHistory]);
 
   const filteredSuggestions = useMemo(() => {
     if (!newExercise.name.trim()) return [];
@@ -663,6 +726,15 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                       {(workout.exercises?.length || 0)} lifts
                     </span>
                   </div>
+                  {progressionByWorkoutId[workout.id]?.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {progressionByWorkoutId[workout.id].map((note, idx) => (
+                        <span key={idx} className="text-[9px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg font-medium">
+                          ↗ {note}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {workout.exercises && workout.exercises.map((ex: Exercise, i: number) => (
                       <span key={i} className="text-[9px] bg-stone-50 text-stone-500 px-2 py-1 rounded-lg flex items-center gap-1">
