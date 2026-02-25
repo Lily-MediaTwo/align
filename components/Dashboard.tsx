@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppState, CyclePhase } from '../types';
 import { getAdaptiveNudge } from '../services/geminiService';
+import { formatLocalDate, getDateDaysAgo, parseDayString, isOnOrAfterDate, formatLocalTime } from '../utils/dateUtils';
 
 interface DashboardProps {
   state: AppState;
@@ -20,16 +21,14 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
     fetchData();
   }, [state]);
 
-  const [y, m, d] = state.todayStr.split('-').map(Number);
-  const localToday = new Date(y, m - 1, d);
-  const dateStr = localToday.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const localToday = parseDayString(state.todayStr);
+  const dateStr = formatLocalDate(localToday, { weekday: 'long', month: 'long', day: 'numeric' }, 'en-US');
   const dayIndex = (localToday.getDay() + 6) % 7;
   const todaySplit = state.weeklySplit[dayIndex];
 
   // Cycle Phase Calculation
   const getCycleDay = () => {
-    const [cy, cm, cd] = state.cycleConfig.lastStartDate.split('-').map(Number);
-    const startDate = new Date(cy, cm - 1, cd);
+    const startDate = parseDayString(state.cycleConfig.lastStartDate);
     // Set both to midnight to compare full days
     const t = new Date(localToday.getFullYear(), localToday.getMonth(), localToday.getDate());
     const diffTime = Math.abs(t.getTime() - startDate.getTime());
@@ -52,7 +51,7 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   const hydrationGoal = state.dailyHydrationGoal;
 
   const getGreeting = () => {
-    const hour = new Date().getHours();
+    const hour = Number(formatLocalTime(new Date(), { hour: 'numeric', hour12: false }));
     if (hour < 12) return "Good morning";
     if (hour < 17) return "Good afternoon";
     return "Good evening";
@@ -152,7 +151,7 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-3xl font-light text-stone-700">
-              {state.workouts.filter(w => w.completed && new Date(w.date) > new Date(Date.now() - 7*24*60*60*1000)).length}
+              {state.workouts.filter(w => w.completed && isOnOrAfterDate(w.date, getDateDaysAgo(7))).length}
             </span>
             <span className="text-xs text-stone-400 font-medium">this week</span>
           </div>
