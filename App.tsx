@@ -17,9 +17,22 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('align_state');
     if (saved) {
       const parsed = JSON.parse(saved);
+
+      const mergedAvailableExercises = [
+        ...(INITIAL_STATE.availableExercises || []),
+        ...(parsed.availableExercises || []),
+      ].reduce((acc, exercise) => {
+        const key = exercise.name.toLowerCase();
+        if (!acc.some(existing => existing.name.toLowerCase() === key)) {
+          acc.push(exercise);
+        }
+        return acc;
+      }, [] as typeof INITIAL_STATE.availableExercises);
+
       return {
         ...INITIAL_STATE,
         ...parsed,
+        availableExercises: mergedAvailableExercises,
         hydrationGoals: parsed.hydrationGoals || { [INITIAL_STATE.todayStr]: INITIAL_STATE.dailyHydrationGoal }
       };
     }
