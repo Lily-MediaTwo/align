@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Workout, Exercise, ExerciseDefinition, SplitDay, SetLog, EquipmentType } from '../types';
 import { EQUIPMENT_CONFIG, COMMON_EXERCISES } from '../constants';
+import { formatLocalDate, getDateDaysAgo, isOnOrAfterDate, parseDayString } from '../utils/dateUtils';
 
 interface WorkoutTrackerProps {
   activeWorkout?: Workout;
@@ -40,12 +41,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const [historyDateRange, setHistoryDateRange] = useState<'all' | '7' | '30'>('all');
   const [historyTypeFilter, setHistoryTypeFilter] = useState<string>('All');
 
-  const today = new Date();
-  const [y, m, d] = todayStr.split('-').map(Number);
-  const localToday = new Date(y, m - 1, d);
+  const localToday = parseDayString(todayStr);
   const dayIndex = (localToday.getDay() + 6) % 7;
   const splitDay = weeklySplit[dayIndex];
-  const todayDisplayStr = localToday.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const todayDisplayStr = formatLocalDate(localToday, { weekday: 'long', month: 'long', day: 'numeric' }, 'en-US');
 
   const findPreviousStats = (exerciseName: string) => {
     const sortedHistory = [...allHistory].filter(w => w.completed).sort((a, b) => 
@@ -65,68 +64,99 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     return undefined;
   };
 
-  const handleSetChange = (exerciseId: string, setIndex: number, field: keyof SetLog, value: string) => {
-    if (!activeWorkout) return;
-    const updated = { ...activeWorkout };
-    const exercise = updated.exercises.find(e => e.id === exerciseId);
-    if (exercise) {
-      const set = exercise.sets[setIndex];
-      if (set) {
-        (set as any)[field] = Number(value);
-      }
-      onUpdate(updated);
+  const parseSetValue = (field: keyof SetLog, value: string): number | undefined => {
+    if (value.trim() === '') return undefined;
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return undefined;
+
+    if (field === 'reps' || field === 'durationMinutes') {
+      return Math.max(0, Math.round(parsed));
     }
+
+    if (field === 'weight') {
+      return Math.max(0, Math.round(parsed * 10) / 10);
+    }
+
+    return undefined;
+  };
+
+  const updateExerciseById = (exerciseId: string, updater: (exercise: Exercise) => Exercise) => {
+    if (!activeWorkout) return;
+
+    const exerciseIndex = activeWorkout.exercises.findIndex(e => e.id === exerciseId);
+    if (exerciseIndex === -1) return;
+
+    const updatedExercises = [...activeWorkout.exercises];
+    updatedExercises[exerciseIndex] = updater(updatedExercises[exerciseIndex]);
+
+    onUpdate({
+      ...activeWorkout,
+      exercises: updatedExercises,
+    });
+  };
+
+  const handleSetChange = (exerciseId: string, setIndex: number, field: keyof SetLog, value: string) => {
+    const parsedValue = parseSetValue(field, value);
+
+    updateExerciseById(exerciseId, (exercise) => {
+      const updatedSets = exercise.sets.map((set, index) => {
+        if (index !== setIndex) return set;
+        return {
+          ...set,
+          [field]: parsedValue,
+        };
+      });
+
+      return {
+        ...exercise,
+        sets: updatedSets,
+      };
+    });
   };
 
   const handleEquipmentChange = (exerciseId: string, equipment: EquipmentType) => {
-    if (!activeWorkout) return;
-    const updated = { ...activeWorkout };
-    const exercise = updated.exercises.find(e => e.id === exerciseId);
-    if (exercise) {
-      exercise.equipment = equipment;
-      onUpdate(updated);
-    }
+    updateExerciseById(exerciseId, (exercise) => ({
+      ...exercise,
+      equipment,
+    }));
   };
 
   const toggleSetComplete = (exerciseId: string, setIndex: number) => {
-    if (!activeWorkout) return;
-    const updated = { ...activeWorkout };
-    const exercise = updated.exercises.find(e => e.id === exerciseId);
-    if (exercise) {
-      const set = exercise.sets[setIndex];
-      if (set) {
-        set.isCompleted = !set.isCompleted;
-      }
-      onUpdate(updated);
-    }
+    updateExerciseById(exerciseId, (exercise) => ({
+      ...exercise,
+      sets: exercise.sets.map((set, index) => index === setIndex ? { ...set, isCompleted: !set.isCompleted } : set),
+    }));
   };
 
   const addSet = (exerciseId: string) => {
-    if (!activeWorkout) return;
-    const updated = { ...activeWorkout };
-    const exercise = updated.exercises.find(e => e.id === exerciseId);
-    if (exercise) {
+    updateExerciseById(exerciseId, (exercise) => {
       const lastSet = exercise.sets[exercise.sets.length - 1];
       const isTimed = ['Cardio', 'Active Recovery'].includes(exercise.category);
-      
-      exercise.sets.push({ 
-        reps: isTimed ? undefined : (lastSet?.reps || 0), 
-        weight: isTimed ? undefined : (lastSet?.weight || 0),
-        durationMinutes: isTimed ? (lastSet?.durationMinutes || 0) : undefined,
-        isCompleted: false 
-      });
-      onUpdate(updated);
-    }
+
+      return {
+        ...exercise,
+        sets: [
+          ...exercise.sets,
+          {
+            reps: isTimed ? undefined : (lastSet?.reps ?? 0),
+            weight: isTimed ? undefined : (lastSet?.weight ?? 0),
+            durationMinutes: isTimed ? (lastSet?.durationMinutes ?? 0) : undefined,
+            isCompleted: false,
+          },
+        ],
+      };
+    });
   };
 
   const removeSet = (exerciseId: string, setIndex: number) => {
-    if (!activeWorkout) return;
-    const updated = { ...activeWorkout };
-    const exercise = updated.exercises.find(e => e.id === exerciseId);
-    if (exercise && exercise.sets.length > 1) {
-      exercise.sets.splice(setIndex, 1);
-      onUpdate(updated);
-    }
+    updateExerciseById(exerciseId, (exercise) => {
+      if (exercise.sets.length <= 1) return exercise;
+      return {
+        ...exercise,
+        sets: exercise.sets.filter((_, index) => index !== setIndex),
+      };
+    });
   };
 
   const addExercise = (name: string = newExercise.name, category: string = newExercise.category, equipment: EquipmentType = newExercise.equipment) => {
@@ -184,8 +214,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
   const recommendations = useMemo(() => {
     const splitLabel = splitDay?.label.toLowerCase() || '';
-    
-    // Mapping split types to relevant categories
+
     const categoryMap: Record<string, string[]> = {
       push: ['Chest', 'Shoulders', 'Arms'],
       pull: ['Back', 'Arms'],
@@ -201,21 +230,49 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       rest: ['Active Recovery']
     };
 
-    const targetCategories = Object.keys(categoryMap).find(k => splitLabel.includes(k))
-      ? categoryMap[Object.keys(categoryMap).find(k => splitLabel.includes(k))!]
-      : [];
+    const matchedSplitKey = Object.keys(categoryMap).find(k => splitLabel.includes(k));
+    const targetCategories = matchedSplitKey ? categoryMap[matchedSplitKey] : [];
 
-    if (targetCategories.length === 0) return availableExercises.slice(0, 5);
+    const exercisesInSession = new Set((activeWorkout?.exercises || []).map(e => e.name.toLowerCase()));
+    const recentCompleted = allHistory
+      .filter(w => w.completed)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 10);
 
-    // Filter available exercises to match categories
-    const filtered = availableExercises.filter(ex => 
-      targetCategories.includes(ex.category) && 
-      (!activeWorkout || !activeWorkout.exercises.some(e => e.name === ex.name))
-    );
+    const frequencyByName = recentCompleted.reduce<Record<string, number>>((acc, workout) => {
+      workout.exercises.forEach(ex => {
+        const key = ex.name.toLowerCase();
+        acc[key] = (acc[key] || 0) + 1;
+      });
+      return acc;
+    }, {});
 
-    // If we have plenty, take a random sample of 6
-    return filtered.sort(() => 0.5 - Math.random()).slice(0, 6);
-  }, [splitDay, availableExercises, activeWorkout]);
+    const latestIndexByName = recentCompleted.reduce<Record<string, number>>((acc, workout, index) => {
+      workout.exercises.forEach(ex => {
+        const key = ex.name.toLowerCase();
+        if (acc[key] === undefined) acc[key] = index;
+      });
+      return acc;
+    }, {});
+
+    const basePool = availableExercises.filter(ex => !exercisesInSession.has(ex.name.toLowerCase()));
+
+    const scored = basePool
+      .filter(ex => targetCategories.length === 0 || targetCategories.includes(ex.category))
+      .map(ex => {
+        const key = ex.name.toLowerCase();
+        const frequencyPenalty = frequencyByName[key] || 0;
+        const recencyPenalty = latestIndexByName[key] === undefined ? 0 : (10 - latestIndexByName[key]);
+        const categoryBonus = targetCategories.includes(ex.category) ? 30 : 0;
+        const novelBonus = frequencyByName[key] ? 0 : 12;
+
+        const score = categoryBonus + novelBonus - (frequencyPenalty * 6) - recencyPenalty;
+        return { exercise: ex, score };
+      })
+      .sort((a, b) => b.score - a.score || a.exercise.name.localeCompare(b.exercise.name));
+
+    return scored.slice(0, 6).map(item => item.exercise);
+  }, [splitDay, availableExercises, activeWorkout, allHistory]);
 
   const categoriesInSession = useMemo(() => {
     if (!activeWorkout) return ['All'];
@@ -244,9 +301,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
     // Date filtering
     if (historyDateRange !== 'all') {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - Number(historyDateRange));
-      filtered = filtered.filter(w => new Date(w.date) >= cutoff);
+      const cutoff = getDateDaysAgo(Number(historyDateRange));
+      filtered = filtered.filter(w => isOnOrAfterDate(w.date, cutoff));
     }
 
     // Type filtering
@@ -256,6 +312,44 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
     return filtered;
   }, [completedWorkouts, historyDateRange, historyTypeFilter]);
+
+  const progressionByWorkoutId = useMemo(() => {
+    const completed = allHistory
+      .filter(w => w.completed)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const latestMetricsByExercise: Record<string, { bestWeight: number; bestReps: number; totalDuration: number }> = {};
+    const result: Record<string, string[]> = {};
+
+    completed.forEach((workout) => {
+      const notes: string[] = [];
+
+      workout.exercises.forEach((exercise) => {
+        const key = exercise.name.toLowerCase();
+        const previous = latestMetricsByExercise[key];
+
+        const bestWeight = Math.max(...exercise.sets.map(s => s.weight || 0), 0);
+        const bestReps = Math.max(...exercise.sets.map(s => s.reps || 0), 0);
+        const totalDuration = exercise.sets.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+
+        if (previous) {
+          if (bestWeight > previous.bestWeight) {
+            notes.push(`${exercise.name} +${(bestWeight - previous.bestWeight).toFixed(1)} lb`);
+          } else if (bestReps > previous.bestReps) {
+            notes.push(`${exercise.name} +${bestReps - previous.bestReps} reps`);
+          } else if (totalDuration > previous.totalDuration) {
+            notes.push(`${exercise.name} +${totalDuration - previous.totalDuration} min`);
+          }
+        }
+
+        latestMetricsByExercise[key] = { bestWeight, bestReps, totalDuration };
+      });
+
+      result[workout.id] = notes.slice(0, 2);
+    });
+
+    return result;
+  }, [allHistory]);
 
   const filteredSuggestions = useMemo(() => {
     if (!newExercise.name.trim()) return [];
@@ -275,6 +369,20 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
   const handleFinishSession = () => {
     if (!activeWorkout) return;
+
+    const totalSets = activeWorkout.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
+    const completedSets = activeWorkout.exercises.reduce(
+      (sum, exercise) => sum + exercise.sets.filter(set => set.isCompleted).length,
+      0,
+    );
+
+    if (totalSets > 0 && completedSets < totalSets) {
+      const shouldFinish = window.confirm(
+        `You have ${totalSets - completedSets} incomplete set${totalSets - completedSets === 1 ? '' : 's'}. Finish anyway?`,
+      );
+      if (!shouldFinish) return;
+    }
+
     onUpdate({ ...activeWorkout, completed: true });
     setView('history');
   };
@@ -520,11 +628,11 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                                   {prev ? (isTimed ? `${prev.durationMinutes}m` : `${prev.weight}x${prev.reps}`) : '--'}
                                 </div>
                                 {isTimed ? (
-                                  <input type="number" className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.durationMinutes || ''} onChange={(e) => handleSetChange(exercise.id, idx, 'durationMinutes', e.target.value)} />
+                                  <input type="number" min={0} step={1} className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.durationMinutes ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'durationMinutes', e.target.value)} />
                                 ) : (
                                   <>
-                                    <input type="number" className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.weight || ''} onChange={(e) => handleSetChange(exercise.id, idx, 'weight', e.target.value)} />
-                                    <input type="number" className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.reps || ''} onChange={(e) => handleSetChange(exercise.id, idx, 'reps', e.target.value)} />
+                                    <input type="number" min={0} step={0.5} className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.weight ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'weight', e.target.value)} />
+                                    <input type="number" min={0} step={1} className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.reps ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'reps', e.target.value)} />
                                   </>
                                 )}
                                 <div className="flex justify-end gap-1">
@@ -611,13 +719,22 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                     <div>
                       <h4 className="font-semibold text-stone-700 group-hover:text-[#7c9082] transition-colors">{workout.name}</h4>
                       <p className="text-[10px] text-stone-400 font-medium">
-                        {new Date(workout.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {formatLocalDate(workout.date, { month: 'short', day: 'numeric', year: 'numeric' }, 'en-US')}
                       </p>
                     </div>
                     <span className="text-[10px] bg-stone-50 px-2 py-1 rounded-full text-stone-400 font-bold uppercase">
                       {(workout.exercises?.length || 0)} lifts
                     </span>
                   </div>
+                  {progressionByWorkoutId[workout.id]?.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {progressionByWorkoutId[workout.id].map((note, idx) => (
+                        <span key={idx} className="text-[9px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg font-medium">
+                          ↗ {note}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {workout.exercises && workout.exercises.map((ex: Exercise, i: number) => (
                       <span key={i} className="text-[9px] bg-stone-50 text-stone-500 px-2 py-1 rounded-lg flex items-center gap-1">

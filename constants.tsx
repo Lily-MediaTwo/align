@@ -1,6 +1,9 @@
 
 import React from 'react';
 import { AppState, Goal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType } from './types';
+import { getTodayString } from './utils/dateUtils';
+
+const todayString = getTodayString();
 
 export const COMMON_EXERCISES: ExerciseDefinition[] = [
   // Chest
@@ -24,6 +27,8 @@ export const COMMON_EXERCISES: ExerciseDefinition[] = [
   { name: 'Face Pulls', category: 'Back', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 30 }, { reps: 15, weight: 35 }, { reps: 15, weight: 40 }] },
   { name: 'Back Extension', category: 'Back', equipment: 'bodyweight', recommendedSets: [{ reps: 15, weight: 0 }, { reps: 15, weight: 0 }, { reps: 15, weight: 0 }] },
   { name: 'Chin Ups', category: 'Back', equipment: 'bodyweight', recommendedSets: [{ reps: 8, weight: 0 }, { reps: 8, weight: 0 }, { reps: 8, weight: 0 }] },
+  { name: 'Chest Supported Row', category: 'Back', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 25 }, { reps: 10, weight: 35 }, { reps: 10, weight: 40 }] },
+  { name: 'Neutral Grip Lat Pulldown', category: 'Back', equipment: 'machine', recommendedSets: [{ reps: 12, weight: 70 }, { reps: 10, weight: 85 }, { reps: 10, weight: 100 }] },
   
   // Shoulders
   { name: 'Overhead Press', category: 'Shoulders', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 45 }, { reps: 8, weight: 65 }, { reps: 8, weight: 75 }] },
@@ -33,6 +38,8 @@ export const COMMON_EXERCISES: ExerciseDefinition[] = [
   { name: 'Arnold Press', category: 'Shoulders', equipment: 'dumbbell', recommendedSets: [{ reps: 10, weight: 25 }, { reps: 10, weight: 30 }, { reps: 10, weight: 35 }] },
   { name: 'Upright Row', category: 'Shoulders', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 45 }, { reps: 12, weight: 55 }, { reps: 12, weight: 65 }] },
   { name: 'Shrugs', category: 'Shoulders', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 50 }, { reps: 12, weight: 60 }, { reps: 12, weight: 70 }] },
+  { name: 'Seated Dumbbell Shoulder Press', category: 'Shoulders', equipment: 'dumbbell', recommendedSets: [{ reps: 10, weight: 20 }, { reps: 10, weight: 30 }, { reps: 8, weight: 35 }] },
+  { name: 'Machine Shoulder Press', category: 'Shoulders', equipment: 'machine', recommendedSets: [{ reps: 12, weight: 50 }, { reps: 10, weight: 70 }, { reps: 10, weight: 90 }] },
   
   // Legs
   { name: 'Squat', category: 'Legs', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 45 }, { reps: 10, weight: 95 }, { reps: 10, weight: 135 }] },
@@ -46,6 +53,10 @@ export const COMMON_EXERCISES: ExerciseDefinition[] = [
   { name: 'Hack Squat', category: 'Legs', equipment: 'machine', recommendedSets: [{ reps: 10, weight: 45 }, { reps: 10, weight: 90 }, { reps: 10, weight: 135 }] },
   { name: 'Glute Bridge', category: 'Legs', equipment: 'bodyweight', recommendedSets: [{ reps: 15, weight: 0 }, { reps: 15, weight: 0 }, { reps: 15, weight: 0 }] },
   { name: 'Hip Thrust', category: 'Legs', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 95 }, { reps: 10, weight: 135 }, { reps: 10, weight: 155 }] },
+  { name: 'Good Morning', category: 'Legs', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 45 }, { reps: 10, weight: 65 }, { reps: 8, weight: 85 }] },
+  { name: 'Cable Pull Through', category: 'Legs', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 40 }, { reps: 12, weight: 50 }, { reps: 12, weight: 60 }] },
+  { name: 'Single Leg Romanian Deadlift', category: 'Legs', equipment: 'dumbbell', recommendedSets: [{ reps: 10, weight: 15 }, { reps: 10, weight: 20 }, { reps: 10, weight: 25 }] },
+  { name: 'Nordic Curl', category: 'Legs', equipment: 'bodyweight', recommendedSets: [{ reps: 6, weight: 0 }, { reps: 6, weight: 0 }, { reps: 6, weight: 0 }] },
   
   // Arms
   { name: 'Bicep Curl', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
@@ -56,6 +67,7 @@ export const COMMON_EXERCISES: ExerciseDefinition[] = [
   { name: 'Tricep Pushdown', category: 'Arms', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 30 }, { reps: 15, weight: 40 }, { reps: 15, weight: 50 }] },
   { name: 'Concentration Curl', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
   { name: 'Close Grip Bench Press', category: 'Arms', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 65 }, { reps: 10, weight: 95 }, { reps: 10, weight: 115 }] },
+  { name: 'Overhead Cable Tricep Extension', category: 'Arms', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 20 }, { reps: 12, weight: 30 }, { reps: 12, weight: 35 }] },
   
   // Core
   { name: 'Plank', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }] },
@@ -66,6 +78,10 @@ export const COMMON_EXERCISES: ExerciseDefinition[] = [
   { name: 'Mountain Climbers', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 30, weight: 0 }, { reps: 30, weight: 0 }, { reps: 30, weight: 0 }] },
   { name: 'Ab Wheel Rollout', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 10, weight: 0 }, { reps: 10, weight: 0 }, { reps: 10, weight: 0 }] },
   { name: 'Woodchopper', category: 'Core', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 20 }, { reps: 15, weight: 25 }, { reps: 15, weight: 25 }] },
+  { name: 'Pallof Press', category: 'Core', equipment: 'cable', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
+  { name: 'Side Plank', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }] },
+  { name: 'Farmer Carry', category: 'Core', equipment: 'dumbbell', recommendedSets: [{ reps: 0, weight: 40, durationMinutes: 1 }, { reps: 0, weight: 50, durationMinutes: 1 }, { reps: 0, weight: 60, durationMinutes: 1 }] },
+  { name: 'Suitcase Carry', category: 'Core', equipment: 'kettlebell', recommendedSets: [{ reps: 0, weight: 25, durationMinutes: 1 }, { reps: 0, weight: 35, durationMinutes: 1 }, { reps: 0, weight: 45, durationMinutes: 1 }] },
   
   // Cardio
   { name: 'Running', category: 'Cardio', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 20 }] },
@@ -76,13 +92,18 @@ export const COMMON_EXERCISES: ExerciseDefinition[] = [
   { name: 'Rowing Machine', category: 'Cardio', equipment: 'machine', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 15 }] },
   { name: 'Jump Rope', category: 'Cardio', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 10 }] },
   { name: 'Stair Climber', category: 'Cardio', equipment: 'machine', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 15 }] },
+  { name: 'Assault Bike', category: 'Cardio', equipment: 'machine', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 12 }] },
   
   // Active Recovery
   { name: 'Yoga', category: 'Active Recovery', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 30 }] },
   { name: 'Stretching', category: 'Active Recovery', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 15 }] },
   { name: 'Foam Rolling', category: 'Active Recovery', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 10 }] },
   { name: 'Pilates', category: 'Active Recovery', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 30 }] },
-  { name: 'Mobility Flow', category: 'Active Recovery', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 15 }] }
+  { name: 'Mobility Flow', category: 'Active Recovery', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 15 }] },
+  { name: 'Turkish Get Up', category: 'Active Recovery', equipment: 'kettlebell', recommendedSets: [{ reps: 5, weight: 15 }, { reps: 5, weight: 20 }, { reps: 5, weight: 25 }] },
+  { name: 'Kettlebell Swing', category: 'Cardio', equipment: 'kettlebell', recommendedSets: [{ reps: 20, weight: 20 }, { reps: 20, weight: 25 }, { reps: 20, weight: 35 }] },
+  { name: 'Goblet Squat', category: 'Legs', equipment: 'kettlebell', recommendedSets: [{ reps: 12, weight: 20 }, { reps: 10, weight: 30 }, { reps: 10, weight: 40 }] },
+  { name: 'Kettlebell Clean and Press', category: 'Shoulders', equipment: 'kettlebell', recommendedSets: [{ reps: 8, weight: 20 }, { reps: 8, weight: 25 }, { reps: 8, weight: 35 }] }
 ];
 
 export const EQUIPMENT_CONFIG: Record<EquipmentType, { label: string; icon: string }> = {
@@ -162,15 +183,15 @@ export const INITIAL_STATE: AppState = {
   hydration: [],
   cycle: [],
   cycleConfig: {
-    lastStartDate: new Date().toISOString().split('T')[0],
+    lastStartDate: todayString,
     cycleLength: 28
   },
   availableExercises: COMMON_EXERCISES,
   weeklySplit: SPLIT_TEMPLATES[0].days,
   selectedTemplateId: 'ppl-6',
   dailyHydrationGoal: 64,
-  hydrationGoals: { [new Date().toISOString().split('T')[0]]: 64 },
-  todayStr: new Date().toISOString().split('T')[0]
+  hydrationGoals: { [todayString]: 64 },
+  todayStr: todayString
 };
 
 export const MOOD_CONFIG: Record<string, { emoji: string; color: string }> = {
