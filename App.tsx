@@ -6,8 +6,8 @@ import WorkoutTracker from './components/WorkoutTracker';
 import HydrationPacer from './components/HydrationPacer';
 import MoodJournal from './components/MoodJournal';
 import AlignmentCenter from './components/AlignmentCenter';
-import { AppState, MoodEntry, Workout, HydrationLog, ExerciseDefinition, SplitDay, CycleConfig, Goal } from './types';
-import { INITIAL_STATE } from './constants';
+import { AppState, MoodEntry, Workout, HydrationLog, ExerciseDefinition, SplitDay, CycleConfig, Goal, WorkoutBlock, TrainingProfile } from './types';
+import { DEFAULT_TRAINING_PROFILE, INITIAL_STATE } from './constants';
 import { getDateDaysAgo, getTodayString, isOnOrAfterDate, isSameLocalDay } from './utils/dateUtils';
 
 const App: React.FC = () => {
@@ -33,7 +33,8 @@ const App: React.FC = () => {
         ...INITIAL_STATE,
         ...parsed,
         availableExercises: mergedAvailableExercises,
-        hydrationGoals: parsed.hydrationGoals || { [INITIAL_STATE.todayStr]: INITIAL_STATE.dailyHydrationGoal }
+        hydrationGoals: parsed.hydrationGoals || { [INITIAL_STATE.todayStr]: INITIAL_STATE.dailyHydrationGoal },
+        trainingProfile: parsed.trainingProfile || DEFAULT_TRAINING_PROFILE
       };
     }
     return INITIAL_STATE;
@@ -186,13 +187,14 @@ const App: React.FC = () => {
     });
   };
 
-  const startNewWorkout = (name: string) => {
+  const startNewWorkout = (name: string, blocks?: WorkoutBlock[]) => {
     const newWorkout: Workout = {
       id: Math.random().toString(36).substr(2, 9),
       name: name,
       date: new Date().toISOString(),
       exercises: [],
-      completed: false
+      completed: false,
+      blocks
     };
     setState(prev => ({
       ...prev,
@@ -212,6 +214,13 @@ const App: React.FC = () => {
     setState(prev => ({
       ...prev,
       cycleConfig: { ...prev.cycleConfig, ...config }
+    }));
+  };
+
+  const updateTrainingProfile = (profile: Partial<TrainingProfile>) => {
+    setState(prev => ({
+      ...prev,
+      trainingProfile: { ...prev.trainingProfile, ...profile }
     }));
   };
 
@@ -235,6 +244,7 @@ const App: React.FC = () => {
             completedWorkouts={completedWorkouts}
             onUpdate={updateWorkout} 
             onStart={startNewWorkout}
+            trainingProfile={processedState.trainingProfile}
             availableExercises={processedState.availableExercises}
             onNewExerciseCreated={handleNewExerciseCreated}
             weeklySplit={processedState.weeklySplit}
@@ -263,6 +273,7 @@ const App: React.FC = () => {
             onUpdateCycle={updateCycleConfig}
             onAddGoal={addGoal}
             onDeleteGoal={deleteGoal}
+            onUpdateTrainingProfile={updateTrainingProfile}
           />
         );
       default:

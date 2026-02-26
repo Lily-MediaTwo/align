@@ -1,9 +1,17 @@
 
 import React from 'react';
-import { AppState, Goal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType } from './types';
+import { AppState, Goal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType, TrainingProfile } from './types';
 import { getTodayString } from './utils/dateUtils';
 
 const todayString = getTodayString();
+
+export const DEFAULT_TRAINING_PROFILE: TrainingProfile = {
+  goal: 'hypertrophy',
+  daysPerWeek: 4,
+  experience: 'intermediate',
+  splitPreference: 'auto',
+  sessionLengthMin: 60,
+};
 
 export const COMMON_EXERCISES: ExerciseDefinition[] = [
   // Chest
@@ -191,7 +199,8 @@ export const INITIAL_STATE: AppState = {
   selectedTemplateId: 'ppl-6',
   dailyHydrationGoal: 64,
   hydrationGoals: { [todayString]: 64 },
-  todayStr: todayString
+  todayStr: todayString,
+  trainingProfile: DEFAULT_TRAINING_PROFILE
 };
 
 export const MOOD_CONFIG: Record<string, { emoji: string; color: string }> = {

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { AppState, SplitTemplate, SplitDay, CycleConfig, Goal } from '../types';
+import { AppState, SplitTemplate, SplitDay, CycleConfig, Goal, TrainingProfile } from '../types';
 import { SPLIT_TEMPLATES } from '../constants';
 import { formatLocalDate, parseDayString, toLocalDayString } from '../utils/dateUtils';
 
@@ -10,6 +10,7 @@ interface AlignmentCenterProps {
   onUpdateCycle: (config: Partial<CycleConfig>) => void;
   onAddGoal: (goal: Omit<Goal, 'id' | 'progress' | 'current'>) => void;
   onDeleteGoal: (id: string) => void;
+  onUpdateTrainingProfile: (profile: Partial<TrainingProfile>) => void;
 }
 
 const CalendarPicker: React.FC<{ 
@@ -89,7 +90,8 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
   onUpdateSplit, 
   onUpdateCycle,
   onAddGoal,
-  onDeleteGoal
+  onDeleteGoal,
+  onUpdateTrainingProfile
 }) => {
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [newGoal, setNewGoal] = useState<Omit<Goal, 'id' | 'progress' | 'current'>>({
@@ -123,6 +125,14 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
       autoTrack: 'workouts'
     });
   };
+
+
+  const splitPreferenceOptions: { value: TrainingProfile['splitPreference']; label: string }[] = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'full_body', label: 'Full Body' },
+    { value: 'upper_lower', label: 'Upper / Lower' },
+    { value: 'ppl', label: 'Push / Pull / Legs' },
+  ];
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-24">
@@ -259,6 +269,88 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
               </div>
             ))
           )}
+        </div>
+      </section>
+
+      <section className="space-y-6">
+        <div className="px-1">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4a373] mb-1">Training Focus</h3>
+          <p className="text-xs text-stone-400">Set your primary goal and preferred weekly structure.</p>
+        </div>
+        <div className="bg-white border border-stone-100 rounded-[2.5rem] p-6 shadow-sm space-y-5">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Primary Goal</label>
+              <select
+                value={state.trainingProfile.goal}
+                onChange={(e) => onUpdateTrainingProfile({ goal: e.target.value as TrainingProfile['goal'] })}
+                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
+              >
+                <option value="strength">Strength</option>
+                <option value="hypertrophy">Hypertrophy</option>
+                <option value="endurance">Endurance</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Experience</label>
+              <select
+                value={state.trainingProfile.experience}
+                onChange={(e) => onUpdateTrainingProfile({ experience: e.target.value as TrainingProfile['experience'] })}
+                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
+              >
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Days / Week</label>
+              <select
+                value={state.trainingProfile.daysPerWeek}
+                onChange={(e) => onUpdateTrainingProfile({ daysPerWeek: Number(e.target.value) as TrainingProfile['daysPerWeek'] })}
+                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
+              >
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+                <option value={5}>5</option>
+                <option value={6}>6</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Session Length</label>
+              <select
+                value={state.trainingProfile.sessionLengthMin}
+                onChange={(e) => onUpdateTrainingProfile({ sessionLengthMin: Number(e.target.value) as TrainingProfile['sessionLengthMin'] })}
+                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
+              >
+                <option value={45}>45 min</option>
+                <option value={60}>60 min</option>
+                <option value={75}>75 min</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Split Preference</label>
+            <div className="flex flex-wrap gap-2">
+              {splitPreferenceOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => onUpdateTrainingProfile({ splitPreference: option.value })}
+                  className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all ${
+                    state.trainingProfile.splitPreference === option.value
+                      ? 'bg-[#7c9082] border-[#7c9082] text-white'
+                      : 'bg-stone-50 border-stone-100 text-stone-400'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 

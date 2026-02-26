@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Workout, Exercise, ExerciseDefinition, SplitDay, SetLog, EquipmentType } from '../types';
+import { Workout, Exercise, ExerciseDefinition, SplitDay, SetLog, EquipmentType, TrainingProfile, WorkoutBlock, WorkoutBlockType } from '../types';
 import { EQUIPMENT_CONFIG, COMMON_EXERCISES } from '../constants';
 import { formatLocalDate, getDateDaysAgo, isOnOrAfterDate, parseDayString } from '../utils/dateUtils';
 
@@ -8,12 +8,13 @@ interface WorkoutTrackerProps {
   activeWorkout?: Workout;
   completedWorkouts: Workout[];
   onUpdate: (workout: Workout) => void;
-  onStart: (name: string) => void;
+  onStart: (name: string, blocks?: WorkoutBlock[]) => void;
   availableExercises: ExerciseDefinition[];
   onNewExerciseCreated: (ex: ExerciseDefinition) => void;
   weeklySplit: SplitDay[];
   allHistory: Workout[];
   todayStr: string;
+  trainingProfile: TrainingProfile;
 }
 
 const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({ 
@@ -25,7 +26,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   onNewExerciseCreated,
   weeklySplit,
   allHistory,
-  todayStr
+  todayStr,
+  trainingProfile
 }) => {
   const [view, setView] = useState<'active' | 'history'>(activeWorkout ? 'active' : 'history');
   const [isAdding, setIsAdding] = useState(false);
@@ -45,6 +47,48 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const dayIndex = (localToday.getDay() + 6) % 7;
   const splitDay = weeklySplit[dayIndex];
   const todayDisplayStr = formatLocalDate(localToday, { weekday: 'long', month: 'long', day: 'numeric' }, 'en-US');
+
+
+  const goalPrescription = useMemo(() => {
+    if (trainingProfile.goal === 'strength') {
+      return { sets: '3-5', reps: '3-6', rest: '2-3 min' };
+    }
+    if (trainingProfile.goal === 'endurance') {
+      return { sets: '2-3', reps: '15-20', rest: '45-75 sec' };
+    }
+    return { sets: '3-4', reps: '8-12', rest: '60-90 sec' };
+  }, [trainingProfile.goal]);
+
+  const sessionBlocks = useMemo((): WorkoutBlock[] => {
+    const base: WorkoutBlock[] = [
+      { type: 'warmup', title: 'Warm-up', durationMin: 8, targetCategories: ['Cardio', 'Active Recovery'], notes: 'Light cardio + dynamic mobility' },
+      { type: 'skill_power', title: 'Skill / Power', durationMin: 8, targetCategories: ['Legs', 'Cardio', 'Shoulders'], notes: 'Explosive, low-fatigue work' },
+      { type: 'compound', title: 'Compound Lifts', durationMin: 25, targetCategories: ['Chest', 'Back', 'Legs', 'Shoulders'], recommendedRestSeconds: trainingProfile.goal === 'strength' ? 150 : 90 },
+      { type: 'accessory', title: 'Accessory / Isolation', durationMin: 17, targetCategories: ['Arms', 'Core', 'Shoulders', 'Legs'], recommendedRestSeconds: trainingProfile.goal === 'endurance' ? 60 : 75 },
+      { type: 'cooldown', title: 'Cooldown', durationMin: 8, targetCategories: ['Active Recovery', 'Core'], notes: 'Static stretching + down regulation' },
+    ];
+
+    const scaling = trainingProfile.sessionLengthMin / 60;
+    return base.map(block => ({
+      ...block,
+      durationMin: Math.max(5, Math.round(block.durationMin * scaling)),
+    }));
+  }, [trainingProfile.goal, trainingProfile.sessionLengthMin]);
+
+  const blockCategoriesByType = useMemo(() => {
+    return sessionBlocks.reduce<Record<WorkoutBlockType, string[]>>((acc, block) => {
+      acc[block.type] = block.targetCategories;
+      return acc;
+    }, {
+      warmup: [],
+      skill_power: [],
+      compound: [],
+      accessory: [],
+      cooldown: [],
+    });
+  }, [sessionBlocks]);
+
+  const [selectedBlockType, setSelectedBlockType] = useState<'all' | WorkoutBlockType>('all');
 
   const findPreviousStats = (exerciseName: string) => {
     const sortedHistory = [...allHistory].filter(w => w.completed).sort((a, b) => 
@@ -257,8 +301,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
     const basePool = availableExercises.filter(ex => !exercisesInSession.has(ex.name.toLowerCase()));
 
+    const blockCategories = selectedBlockType === 'all' ? [] : blockCategoriesByType[selectedBlockType];
+
     const scored = basePool
-      .filter(ex => targetCategories.length === 0 || targetCategories.includes(ex.category))
+      .filter(ex => (targetCategories.length === 0 || targetCategories.includes(ex.category)) && (blockCategories.length === 0 || blockCategories.includes(ex.category)))
       .map(ex => {
         const key = ex.name.toLowerCase();
         const frequencyPenalty = frequencyByName[key] || 0;
@@ -272,7 +318,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       .sort((a, b) => b.score - a.score || a.exercise.name.localeCompare(b.exercise.name));
 
     return scored.slice(0, 6).map(item => item.exercise);
-  }, [splitDay, availableExercises, activeWorkout, allHistory]);
+  }, [splitDay, availableExercises, activeWorkout, allHistory, selectedBlockType, blockCategoriesByType]);
 
   const categoriesInSession = useMemo(() => {
     if (!activeWorkout) return ['All'];
@@ -420,7 +466,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
               <p className="text-sm text-stone-400 mt-1">Today is your <span className="font-bold text-[#7c9082]">{splitDay.label}</span> day.</p>
             </div>
             <button 
-              onClick={() => onStart(`${splitDay.label} Session`)}
+              onClick={() => onStart(`${splitDay.label} Session`, sessionBlocks)}
               className="px-10 py-4 bg-[#7c9082] text-white rounded-full font-semibold text-sm shadow-xl shadow-[#7c9082]/20 active:scale-95 transition-all"
             >
               Start Workout
@@ -444,6 +490,38 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 <span className="text-xl">{isAdding ? '✕' : '+'}</span>
               </button>
             </header>
+
+            <section className="bg-white border border-stone-100 rounded-[2rem] p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Optimal Session Structure</h3>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-[#7c9082]">{trainingProfile.goal}</span>
+              </div>
+
+              <div className="grid grid-cols-5 gap-2">
+                {sessionBlocks.map((block) => (
+                  <button
+                    key={block.type}
+                    onClick={() => setSelectedBlockType(block.type)}
+                    className={`text-left p-3 rounded-xl border transition-all ${selectedBlockType === block.type ? 'bg-[#7c9082]/10 border-[#7c9082]/30' : 'bg-stone-50 border-stone-100'}`}
+                  >
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-stone-500">{block.title}</p>
+                    <p className="text-[10px] text-stone-400 mt-1">{block.durationMin} min</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="bg-stone-50 rounded-xl p-3 text-[10px] text-stone-500 flex flex-wrap gap-4">
+                <span><strong>Sets:</strong> {goalPrescription.sets}</span>
+                <span><strong>Reps:</strong> {goalPrescription.reps}</span>
+                <span><strong>Rest:</strong> {goalPrescription.rest}</span>
+                <button
+                  onClick={() => setSelectedBlockType('all')}
+                  className="ml-auto text-[#7c9082] font-bold uppercase tracking-widest"
+                >
+                  Show All
+                </button>
+              </div>
+            </section>
 
             {/* Recommendations Bar */}
             {!isAdding && recommendations.length > 0 && (
