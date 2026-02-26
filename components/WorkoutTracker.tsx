@@ -61,11 +61,11 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
   const sessionBlocks = useMemo((): WorkoutBlock[] => {
     const base: WorkoutBlock[] = [
-      { type: 'warmup', title: 'Warm-up', durationMin: 8, targetCategories: ['Cardio', 'Active Recovery'], notes: 'Light cardio + dynamic mobility' },
-      { type: 'skill_power', title: 'Skill / Power', durationMin: 8, targetCategories: ['Legs', 'Cardio', 'Shoulders'], notes: 'Explosive, low-fatigue work' },
-      { type: 'compound', title: 'Compound Lifts', durationMin: 25, targetCategories: ['Chest', 'Back', 'Legs', 'Shoulders'], recommendedRestSeconds: trainingProfile.goal === 'strength' ? 150 : 90 },
-      { type: 'accessory', title: 'Accessory / Isolation', durationMin: 17, targetCategories: ['Arms', 'Core', 'Shoulders', 'Legs'], recommendedRestSeconds: trainingProfile.goal === 'endurance' ? 60 : 75 },
-      { type: 'cooldown', title: 'Cooldown', durationMin: 8, targetCategories: ['Active Recovery', 'Core'], notes: 'Static stretching + down regulation' },
+      { type: 'warmup', title: 'Warm', durationMin: 8, targetCategories: ['Cardio', 'Active Recovery'], notes: 'Light cardio + dynamic mobility' },
+      { type: 'skill_power', title: 'Power', durationMin: 8, targetCategories: ['Legs', 'Cardio', 'Shoulders'], notes: 'Explosive and athletic movements' },
+      { type: 'compound', title: 'Compound', durationMin: 25, targetCategories: ['Chest', 'Back', 'Legs', 'Shoulders'], recommendedRestSeconds: trainingProfile.goal === 'strength' ? 150 : 90 },
+      { type: 'accessory', title: 'Isolate', durationMin: 17, targetCategories: ['Arms', 'Core', 'Shoulders', 'Legs'], recommendedRestSeconds: trainingProfile.goal === 'endurance' ? 60 : 75 },
+      { type: 'cooldown', title: 'Cool', durationMin: 8, targetCategories: ['Active Recovery', 'Core'], notes: 'Static stretching + down regulation' },
     ];
 
     const scaling = trainingProfile.sessionLengthMin / 60;
@@ -74,19 +74,6 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       durationMin: Math.max(5, Math.round(block.durationMin * scaling)),
     }));
   }, [trainingProfile.goal, trainingProfile.sessionLengthMin]);
-
-  const blockCategoriesByType = useMemo(() => {
-    return sessionBlocks.reduce<Record<WorkoutBlockType, string[]>>((acc, block) => {
-      acc[block.type] = block.targetCategories;
-      return acc;
-    }, {
-      warmup: [],
-      skill_power: [],
-      compound: [],
-      accessory: [],
-      cooldown: [],
-    });
-  }, [sessionBlocks]);
 
   const [selectedBlockType, setSelectedBlockType] = useState<'all' | WorkoutBlockType>('all');
 
@@ -259,7 +246,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const recommendations = useMemo(() => {
     const splitLabel = splitDay?.label.toLowerCase() || '';
 
-    const categoryMap: Record<string, string[]> = {
+    const splitCategoryMap: Record<string, string[]> = {
       push: ['Chest', 'Shoulders', 'Arms'],
       pull: ['Back', 'Arms'],
       legs: ['Legs'],
@@ -274,8 +261,32 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       rest: ['Active Recovery']
     };
 
-    const matchedSplitKey = Object.keys(categoryMap).find(k => splitLabel.includes(k));
-    const targetCategories = matchedSplitKey ? categoryMap[matchedSplitKey] : [];
+    const phaseHints: Record<WorkoutBlockType, { categories: string[]; includeKeywords?: string[]; excludeKeywords?: string[] }> = {
+      warmup: {
+        categories: ['Cardio', 'Active Recovery'],
+        includeKeywords: ['walking', 'cycling', 'elliptical', 'mobility', 'stretch', 'foam', 'yoga']
+      },
+      skill_power: {
+        categories: ['Legs', 'Cardio', 'Shoulders'],
+        includeKeywords: ['jump', 'sprint', 'swing', 'clean', 'press', 'rowing machine', 'assault bike']
+      },
+      compound: {
+        categories: ['Chest', 'Back', 'Legs', 'Shoulders'],
+        excludeKeywords: ['curl', 'extension', 'raise', 'pushdown', 'plank', 'crunch', 'carry', 'twist']
+      },
+      accessory: {
+        categories: ['Arms', 'Core', 'Shoulders', 'Legs'],
+        includeKeywords: ['curl', 'extension', 'raise', 'pushdown', 'plank', 'crunch', 'carry', 'twist', 'fly']
+      },
+      cooldown: {
+        categories: ['Active Recovery', 'Core'],
+        includeKeywords: ['stretch', 'mobility', 'foam', 'yoga', 'pilates', 'cool']
+      },
+    };
+
+    const matchedSplitKey = Object.keys(splitCategoryMap).find(k => splitLabel.includes(k));
+    const splitCategories = matchedSplitKey ? splitCategoryMap[matchedSplitKey] : [];
+    const phaseConfig = selectedBlockType === 'all' ? null : phaseHints[selectedBlockType];
 
     const exercisesInSession = new Set((activeWorkout?.exercises || []).map(e => e.name.toLowerCase()));
     const recentCompleted = allHistory
@@ -301,24 +312,41 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
     const basePool = availableExercises.filter(ex => !exercisesInSession.has(ex.name.toLowerCase()));
 
-    const blockCategories = selectedBlockType === 'all' ? [] : blockCategoriesByType[selectedBlockType];
-
     const scored = basePool
-      .filter(ex => (targetCategories.length === 0 || targetCategories.includes(ex.category)) && (blockCategories.length === 0 || blockCategories.includes(ex.category)))
       .map(ex => {
         const key = ex.name.toLowerCase();
         const frequencyPenalty = frequencyByName[key] || 0;
         const recencyPenalty = latestIndexByName[key] === undefined ? 0 : (10 - latestIndexByName[key]);
-        const categoryBonus = targetCategories.includes(ex.category) ? 30 : 0;
-        const novelBonus = frequencyByName[key] ? 0 : 12;
+        const splitBonus = splitCategories.includes(ex.category) ? 20 : 0;
 
-        const score = categoryBonus + novelBonus - (frequencyPenalty * 6) - recencyPenalty;
+        let phaseBonus = 0;
+        let phasePenalty = 0;
+        if (phaseConfig) {
+          const lowerName = ex.name.toLowerCase();
+          const inPhaseCategory = phaseConfig.categories.includes(ex.category);
+          const includeHit = phaseConfig.includeKeywords?.some(keyword => lowerName.includes(keyword)) || false;
+          const excludeHit = phaseConfig.excludeKeywords?.some(keyword => lowerName.includes(keyword)) || false;
+
+          if (inPhaseCategory) phaseBonus += 24;
+          if (includeHit) phaseBonus += 18;
+          if (excludeHit) phasePenalty += 16;
+        }
+
+        const noveltyBonus = frequencyByName[key] ? 0 : 10;
+        const score = splitBonus + phaseBonus + noveltyBonus - phasePenalty - (frequencyPenalty * 6) - recencyPenalty;
+
         return { exercise: ex, score };
       })
       .sort((a, b) => b.score - a.score || a.exercise.name.localeCompare(b.exercise.name));
 
-    return scored.slice(0, 6).map(item => item.exercise);
-  }, [splitDay, availableExercises, activeWorkout, allHistory, selectedBlockType, blockCategoriesByType]);
+    const trimmed = scored.filter(item => selectedBlockType === 'all' || item.score > 6).slice(0, 6);
+
+    if (trimmed.length === 0 && selectedBlockType !== 'all') {
+      return scored.slice(0, 6).map(item => item.exercise);
+    }
+
+    return trimmed.map(item => item.exercise);
+  }, [splitDay, availableExercises, activeWorkout, allHistory, selectedBlockType]);
 
   const categoriesInSession = useMemo(() => {
     if (!activeWorkout) return ['All'];
@@ -524,27 +552,38 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
             </section>
 
             {/* Recommendations Bar */}
-            {!isAdding && recommendations.length > 0 && (
+            {!isAdding && (
               <div className="space-y-3">
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400 ml-1">Suggested for {splitDay.label}</h3>
-                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 px-1">
-                  {recommendations.map((ex, i) => (
-                    <div key={i} className="relative group">
-                      <button
-                        onClick={() => addExercise(ex.name, ex.category)}
-                        className="bg-white border border-stone-100 px-4 py-3 rounded-2xl shadow-sm flex flex-col items-start min-w-[140px] hover:border-[#7c9082] transition-colors"
-                      >
-                        <span className="text-xs font-bold text-stone-700 leading-tight mb-1 group-hover:text-[#7c9082] transition-colors">{ex.name}</span>
-                        <span className="text-[9px] font-bold uppercase tracking-tighter text-stone-300">{ex.category}</span>
-                      </button>
-                      
-                      {/* Tooltip */}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-stone-800 text-white text-[8px] font-bold uppercase tracking-widest rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30">
-                        {ex.equipment ? `${EQUIPMENT_CONFIG[ex.equipment].icon} ${EQUIPMENT_CONFIG[ex.equipment].label}` : 'No Equipment Info'}
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                    Suggested for {selectedBlockType === 'all' ? splitDay.label : sessionBlocks.find(b => b.type === selectedBlockType)?.title}
+                  </h3>
+                  {selectedBlockType !== 'all' && (
+                    <span className="text-[9px] text-[#7c9082] font-bold uppercase tracking-widest">phase filtered</span>
+                  )}
                 </div>
+
+                {recommendations.length === 0 ? (
+                  <div className="bg-stone-50 border border-stone-100 rounded-2xl p-4 text-[11px] text-stone-400">
+                    No direct matches for this phase yet. Try “Show All” or add a custom exercise.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {recommendations.map((ex, i) => (
+                      <button
+                        key={i}
+                        onClick={() => addExercise(ex.name, ex.category)}
+                        className="bg-white border border-stone-100 px-4 py-3 rounded-2xl shadow-sm text-left hover:border-[#7c9082] transition-colors"
+                      >
+                        <span className="text-xs font-bold text-stone-700 leading-tight mb-1 block">{ex.name}</span>
+                        <span className="text-[9px] font-bold uppercase tracking-tighter text-stone-300">{ex.category}</span>
+                        <span className="mt-1 block text-[9px] text-stone-300">
+                          {ex.equipment ? `${EQUIPMENT_CONFIG[ex.equipment].icon} ${EQUIPMENT_CONFIG[ex.equipment].label}` : 'No Equipment Info'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
