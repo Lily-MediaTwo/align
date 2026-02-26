@@ -3,6 +3,29 @@ export type Mood = 'calm' | 'energized' | 'tired' | 'anxious' | 'neutral' | 'hap
 
 export type EquipmentType = 'bodyweight' | 'dumbbell' | 'barbell' | 'cable' | 'kettlebell' | 'machine';
 
+export type TrainingGoal = 'strength' | 'hypertrophy' | 'endurance';
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+export type SplitPreference = 'auto' | 'full_body' | 'upper_lower' | 'ppl';
+
+export type WorkoutBlockType = 'warmup' | 'skill_power' | 'compound' | 'accessory' | 'cooldown';
+
+export interface WorkoutBlock {
+  type: WorkoutBlockType;
+  title: string;
+  durationMin: number;
+  targetCategories: string[];
+  recommendedRestSeconds?: number;
+  notes?: string;
+}
+
+export interface TrainingProfile {
+  goal: TrainingGoal;
+  daysPerWeek: 3 | 4 | 5 | 6;
+  experience: ExperienceLevel;
+  splitPreference: SplitPreference;
+  sessionLengthMin: 45 | 60 | 75;
+}
+
 export interface SetLog {
   reps?: number;
   weight?: number;
@@ -34,6 +57,7 @@ export interface Workout {
   date: string;
   exercises: Exercise[];
   completed: boolean;
+  blocks?: WorkoutBlock[];
 }
 
 export interface Goal {
@@ -102,4 +126,5 @@ export interface AppState {
   dailyHydrationGoal: number;
   hydrationGoals: Record<string, number>;
   todayStr: string;
+  trainingProfile: TrainingProfile;
 }
