@@ -736,6 +736,38 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
               </button>
             </header>
 
+            <section className="bg-white border border-stone-100 rounded-[2rem] p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Optimal Session Structure</h3>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-[#7c9082]">{trainingProfile.goal}</span>
+              </div>
+
+              <div className="grid grid-cols-5 gap-2">
+                {sessionBlocks.map((block) => (
+                  <button
+                    key={block.type}
+                    onClick={() => setSelectedBlockType(block.type)}
+                    className={`text-left p-3 rounded-xl border transition-all ${selectedBlockType === block.type ? 'bg-[#7c9082]/10 border-[#7c9082]/30' : 'bg-stone-50 border-stone-100'}`}
+                  >
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-stone-500">{block.title}</p>
+                    <p className="text-[10px] text-stone-400 mt-1">{block.durationMin} min</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="bg-stone-50 rounded-xl p-3 text-[10px] text-stone-500 flex flex-wrap gap-4">
+                <span><strong>Sets:</strong> {goalPrescription.sets}</span>
+                <span><strong>Reps:</strong> {goalPrescription.reps}</span>
+                <span><strong>Rest:</strong> {goalPrescription.rest}</span>
+                <button
+                  onClick={() => setSelectedBlockType('all')}
+                  className="ml-auto text-[#7c9082] font-bold uppercase tracking-widest"
+                >
+                  Show All
+                </button>
+              </div>
+            </section>
+
             {/* Recommendations Bar */}
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
               <button
