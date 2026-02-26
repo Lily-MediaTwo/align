@@ -639,16 +639,16 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 <span className="text-[9px] font-bold uppercase tracking-widest text-[#7c9082]">{trainingProfile.goal}</span>
               </div>
 
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {sessionBlocks.map((block) => (
-                  <div key={block.type} className="bg-stone-50 border border-stone-100 rounded-xl p-3">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-stone-500">{block.title}</p>
-                    <p className="text-[10px] text-stone-400 mt-1">{block.durationMin} min</p>
+                  <div key={block.type} className="bg-stone-50 border border-stone-100 rounded-2xl px-3 py-2.5 text-center min-h-[64px] flex flex-col justify-center">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">{block.title}</p>
+                    <p className="text-[11px] text-stone-400 mt-1 font-medium">{block.durationMin} min</p>
                   </div>
                 ))}
               </div>
 
-              <div className="bg-stone-50 rounded-xl p-3 text-[10px] text-stone-500 flex flex-wrap gap-4">
+              <div className="bg-stone-50 rounded-2xl px-4 py-3 text-[11px] text-stone-500 grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <span><strong>Sets:</strong> {goalPrescription.sets}</span>
                 <span><strong>Reps:</strong> {goalPrescription.reps}</span>
                 <span><strong>Rest:</strong> {goalPrescription.rest}</span>
@@ -754,25 +754,6 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 </button>
               </div>
             </section>
-
-            {/* Recommendations Bar */}
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-              <button
-                onClick={() => setSelectedBlockType('all')}
-                className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap border ${selectedBlockType === 'all' ? 'bg-[#7c9082] border-[#7c9082] text-white' : 'bg-white border-stone-100 text-stone-400'}`}
-              >
-                All
-              </button>
-              {sessionBlocks.map((block) => (
-                <button
-                  key={block.type}
-                  onClick={() => setSelectedBlockType(block.type)}
-                  className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap border ${selectedBlockType === block.type ? 'bg-[#7c9082] border-[#7c9082] text-white' : 'bg-white border-stone-100 text-stone-400'}`}
-                >
-                  {block.title}
-                </button>
-              ))}
-            </div>
 
             {/* Recommendations Bar */}
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
