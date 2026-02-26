@@ -81,7 +81,6 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const sessionBlocks = useMemo((): WorkoutBlock[] => {
     const base: WorkoutBlock[] = [
       { type: 'warmup', title: 'Warm', durationMin: 8, targetCategories: ['Cardio', 'Active Recovery'], notes: 'Light cardio + dynamic mobility' },
-      { type: 'skill_power', title: 'Power', durationMin: 8, targetCategories: ['Legs', 'Cardio', 'Shoulders'], notes: 'Explosive and athletic movements' },
       { type: 'compound', title: 'Compound', durationMin: 25, targetCategories: ['Chest', 'Back', 'Legs', 'Shoulders'], recommendedRestSeconds: trainingProfile.goal === 'strength' ? 150 : 90 },
       { type: 'accessory', title: 'Isolate', durationMin: 17, targetCategories: ['Arms', 'Core', 'Shoulders', 'Legs'], recommendedRestSeconds: trainingProfile.goal === 'endurance' ? 60 : 75 },
       { type: 'cooldown', title: 'Cool', durationMin: 8, targetCategories: ['Active Recovery', 'Core'], notes: 'Static stretching + down regulation' },
@@ -96,8 +95,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
   const [selectedBlockType, setSelectedBlockType] = useState<'all' | WorkoutBlockType>('all');
 
-  const [plannerSelections, setPlannerSelections] = useState<Record<string, ExerciseDefinition[]>>({
-    power: [],
+  const [plannerSelections, setPlannerSelections] = useState<Record<'compound' | 'isolate' | 'finisher', ExerciseDefinition[]>>({
     compound: [],
     isolate: [],
     finisher: [],
@@ -125,7 +123,6 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const goalExercisePlan = useMemo(() => {
     if (trainingProfile.goal === 'strength') {
       return {
-        power: '1-2 exercises',
         compound: '2-4 exercises',
         isolate: '1-2 exercises',
         finisher: '0 finishers (prefer core/mobility)',
@@ -133,27 +130,19 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     }
     if (trainingProfile.goal === 'endurance') {
       return {
-        power: '1-2 exercises',
         compound: '2-3 exercises',
         isolate: '3-4 exercises',
         finisher: '1-2 finishers',
       };
     }
     return {
-      power: '0-1 exercises (optional)',
       compound: '2-4 exercises',
       isolate: '3-5 exercises',
       finisher: '1-2 finishers',
     };
   }, [trainingProfile.goal]);
 
-  const plannerPhaseConfig: Record<'power' | 'compound' | 'isolate' | 'finisher', { categories: string[]; include?: string[]; exclude?: string[]; enforceSplitFocus?: boolean; splitOptionalCategories?: string[] }> = {
-    power: {
-      categories: ['Legs', 'Cardio', 'Shoulders'],
-      include: ['jump', 'sprint', 'swing', 'clean', 'assault bike', 'rowing machine'],
-      enforceSplitFocus: true,
-      splitOptionalCategories: ['Cardio'],
-    },
+  const plannerPhaseConfig: Record<'compound' | 'isolate' | 'finisher', { categories: string[]; include?: string[]; exclude?: string[]; enforceSplitFocus?: boolean; splitOptionalCategories?: string[] }> = {
     compound: {
       categories: ['Chest', 'Back', 'Legs', 'Shoulders'],
       exclude: ['curl', 'extension', 'raise', 'pushdown', 'plank', 'twist', 'crunch'],
@@ -189,7 +178,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       return config.splitOptionalCategories?.includes(category) || false;
     };
 
-    const phases: (keyof typeof plannerPhaseConfig)[] = ['power', 'compound', 'isolate', 'finisher'];
+    const phases: (keyof typeof plannerPhaseConfig)[] = ['compound', 'isolate', 'finisher'];
     return phases.reduce((acc, phase) => {
       acc[phase] = [...availableExercises]
         .filter(ex => phaseAllowsCategory(phase, ex.category))
@@ -199,10 +188,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
         .slice(0, 8)
         .map(item => item.ex);
       return acc;
-    }, {} as Record<'power' | 'compound' | 'isolate' | 'finisher', ExerciseDefinition[]>);
+    }, {} as Record<'compound' | 'isolate' | 'finisher', ExerciseDefinition[]>);
   }, [availableExercises, splitFocusCategories]);
 
-  const togglePlannerSelection = (phase: 'power' | 'compound' | 'isolate' | 'finisher', exercise: ExerciseDefinition) => {
+  const togglePlannerSelection = (phase: 'compound' | 'isolate' | 'finisher', exercise: ExerciseDefinition) => {
     setPlannerSelections(prev => {
       const exists = prev[phase].some(item => item.name.toLowerCase() === exercise.name.toLowerCase());
       return {
@@ -216,7 +205,6 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
   const plannedExercises = useMemo(() => {
     return [
-      ...plannerSelections.power,
       ...plannerSelections.compound,
       ...plannerSelections.isolate,
       ...plannerSelections.finisher,
@@ -378,8 +366,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
         includeKeywords: ['walking', 'cycling', 'elliptical', 'mobility', 'stretch', 'foam', 'yoga']
       },
       skill_power: {
-        categories: ['Legs', 'Cardio', 'Shoulders'],
-        includeKeywords: ['jump', 'sprint', 'swing', 'clean', 'press', 'rowing machine', 'assault bike']
+        categories: ['Legs', 'Shoulders', 'Cardio'],
+        includeKeywords: ['jump', 'sprint', 'swing', 'clean', 'press']
       },
       compound: {
         categories: ['Chest', 'Back', 'Legs', 'Shoulders'],
@@ -466,7 +454,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       return acc;
     }, {
       warmup: 'Warm',
-      skill_power: 'Power',
+      skill_power: 'Compound',
       compound: 'Compound',
       accessory: 'Isolate',
       cooldown: 'Cool',
@@ -478,7 +466,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
     if (exercise.category === 'Cardio' || exercise.category === 'Active Recovery') {
       if (lower.includes('stretch') || lower.includes('mobility') || lower.includes('cool')) return 'cooldown';
-      if (lower.includes('jump') || lower.includes('sprint') || lower.includes('swing')) return 'skill_power';
+      if (lower.includes('jump') || lower.includes('sprint') || lower.includes('swing')) return 'compound';
       return 'warmup';
     }
 
@@ -669,7 +657,6 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
             <div className="space-y-4">
               {([
-                { key: 'power', title: 'Power', target: goalExercisePlan.power },
                 { key: 'compound', title: 'Compound', target: goalExercisePlan.compound },
                 { key: 'isolate', title: 'Isolate', target: goalExercisePlan.isolate },
                 { key: 'finisher', title: 'Finisher', target: goalExercisePlan.finisher },
@@ -767,6 +754,25 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 </button>
               </div>
             </section>
+
+            {/* Recommendations Bar */}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              <button
+                onClick={() => setSelectedBlockType('all')}
+                className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap border ${selectedBlockType === 'all' ? 'bg-[#7c9082] border-[#7c9082] text-white' : 'bg-white border-stone-100 text-stone-400'}`}
+              >
+                All
+              </button>
+              {sessionBlocks.map((block) => (
+                <button
+                  key={block.type}
+                  onClick={() => setSelectedBlockType(block.type)}
+                  className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap border ${selectedBlockType === block.type ? 'bg-[#7c9082] border-[#7c9082] text-white' : 'bg-white border-stone-100 text-stone-400'}`}
+                >
+                  {block.title}
+                </button>
+              ))}
+            </div>
 
             {/* Recommendations Bar */}
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
