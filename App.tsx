@@ -6,7 +6,7 @@ import WorkoutTracker from './components/WorkoutTracker';
 import HydrationPacer from './components/HydrationPacer';
 import MoodJournal from './components/MoodJournal';
 import AlignmentCenter from './components/AlignmentCenter';
-import { AppState, MoodEntry, Workout, HydrationLog, ExerciseDefinition, SplitDay, CycleConfig, Goal, WorkoutBlock, TrainingProfile } from './types';
+import { AppState, MoodEntry, Workout, HydrationLog, ExerciseDefinition, SplitDay, CycleConfig, Goal, WorkoutBlock, TrainingProfile, Exercise, EquipmentType } from './types';
 import { DEFAULT_TRAINING_PROFILE, INITIAL_STATE } from './constants';
 import { getDateDaysAgo, getTodayString, isOnOrAfterDate, isSameLocalDay } from './utils/dateUtils';
 
@@ -187,12 +187,34 @@ const App: React.FC = () => {
     });
   };
 
-  const startNewWorkout = (name: string, blocks?: WorkoutBlock[]) => {
+  const startNewWorkout = (name: string, blocks?: WorkoutBlock[], plannedExercises: ExerciseDefinition[] = []) => {
+    const toExercise = (definition: ExerciseDefinition): Exercise => {
+      const isTimed = ['Cardio', 'Active Recovery'].includes(definition.category);
+      const recommendedSets = definition.recommendedSets && definition.recommendedSets.length > 0
+        ? definition.recommendedSets
+        : (isTimed
+          ? [{ durationMinutes: 10 }]
+          : [{ reps: 10, weight: 0 }, { reps: 10, weight: 0 }, { reps: 10, weight: 0 }]);
+
+      return {
+        id: Math.random().toString(36).substr(2, 9),
+        name: definition.name,
+        category: definition.category,
+        equipment: (definition.equipment || (isTimed ? 'bodyweight' : 'barbell')) as EquipmentType,
+        sets: recommendedSets.map(set => ({
+          reps: isTimed ? undefined : set.reps,
+          weight: isTimed ? undefined : set.weight,
+          durationMinutes: isTimed ? (set.durationMinutes ?? 0) : set.durationMinutes,
+          isCompleted: false,
+        })),
+      };
+    };
+
     const newWorkout: Workout = {
       id: Math.random().toString(36).substr(2, 9),
       name: name,
       date: new Date().toISOString(),
-      exercises: [],
+      exercises: plannedExercises.map(toExercise),
       completed: false,
       blocks
     };
