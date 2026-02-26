@@ -1,35 +1,38 @@
 
 import React, { useState, useMemo } from 'react';
-import { Workout, Exercise, ExerciseDefinition, SplitDay, SetLog, EquipmentType } from '../types';
+import { Workout, Exercise, ExerciseDefinition, SplitDay, SetLog, EquipmentType, TrainingProfile, WorkoutBlock, WorkoutBlockType } from '../types';
 import { EQUIPMENT_CONFIG, COMMON_EXERCISES } from '../constants';
+import { formatLocalDate, getDateDaysAgo, isOnOrAfterDate, parseDayString } from '../utils/dateUtils';
 
 interface WorkoutTrackerProps {
   activeWorkout?: Workout;
   completedWorkouts: Workout[];
   onUpdate: (workout: Workout) => void;
-  onStart: (name: string) => void;
+  onStart: (name: string, blocks?: WorkoutBlock[], plannedExercises?: ExerciseDefinition[]) => void;
   availableExercises: ExerciseDefinition[];
   onNewExerciseCreated: (ex: ExerciseDefinition) => void;
   weeklySplit: SplitDay[];
   allHistory: Workout[];
   todayStr: string;
+  trainingProfile: TrainingProfile;
 }
 
-const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({ 
-  activeWorkout, 
+const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
+  activeWorkout,
   completedWorkouts,
-  onUpdate, 
+  onUpdate,
   onStart,
-  availableExercises, 
+  availableExercises,
   onNewExerciseCreated,
   weeklySplit,
   allHistory,
-  todayStr
+  todayStr,
+  trainingProfile
 }) => {
   const [view, setView] = useState<'active' | 'history'>(activeWorkout ? 'active' : 'history');
   const [isAdding, setIsAdding] = useState(false);
-  const [newExercise, setNewExercise] = useState<{ name: string; category: string; equipment: EquipmentType }>({ 
-    name: '', 
+  const [newExercise, setNewExercise] = useState<{ name: string; category: string; equipment: EquipmentType }>({
+    name: '',
     category: 'Chest',
     equipment: 'barbell'
   });
@@ -40,15 +43,66 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const [historyDateRange, setHistoryDateRange] = useState<'all' | '7' | '30'>('all');
   const [historyTypeFilter, setHistoryTypeFilter] = useState<string>('All');
 
-  const today = new Date();
-  const [y, m, d] = todayStr.split('-').map(Number);
-  const localToday = new Date(y, m - 1, d);
+  const localToday = parseDayString(todayStr);
   const dayIndex = (localToday.getDay() + 6) % 7;
   const splitDay = weeklySplit[dayIndex];
-  const todayDisplayStr = localToday.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const todayDisplayStr = formatLocalDate(localToday, { weekday: 'long', month: 'long', day: 'numeric' }, 'en-US');
+
+  const splitCategoryMap: Record<string, string[]> = {
+    push: ['Chest', 'Shoulders', 'Arms'],
+    pull: ['Back', 'Arms'],
+    legs: ['Legs'],
+    upper: ['Chest', 'Back', 'Shoulders', 'Arms'],
+    lower: ['Legs', 'Core'],
+    'full body': ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'],
+    strength: ['Chest', 'Back', 'Legs', 'Shoulders'],
+    condition: ['Cardio'],
+    endurance: ['Cardio'],
+    mobility: ['Active Recovery'],
+    recovery: ['Active Recovery'],
+    rest: ['Active Recovery'],
+  };
+
+  const splitLabelLower = splitDay?.label.toLowerCase() || '';
+  const matchedSplitKey = Object.keys(splitCategoryMap).find(k => splitLabelLower.includes(k));
+  const splitFocusCategories = matchedSplitKey ? splitCategoryMap[matchedSplitKey] : [];
+
+
+  const goalPrescription = useMemo(() => {
+    if (trainingProfile.goal === 'strength') {
+      return { sets: '3-5', reps: '3-6', rest: '2-3 min' };
+    }
+    if (trainingProfile.goal === 'endurance') {
+      return { sets: '2-3', reps: '15-20', rest: '45-75 sec' };
+    }
+    return { sets: '3-4', reps: '8-12', rest: '60-90 sec' };
+  }, [trainingProfile.goal]);
+
+  const sessionBlocks = useMemo((): WorkoutBlock[] => {
+    const base: WorkoutBlock[] = [
+      { type: 'warmup', title: 'Warm', durationMin: 8, targetCategories: ['Cardio', 'Active Recovery'], notes: 'Light cardio + dynamic mobility' },
+      { type: 'compound', title: 'Compound', durationMin: 25, targetCategories: ['Chest', 'Back', 'Legs', 'Shoulders'], recommendedRestSeconds: trainingProfile.goal === 'strength' ? 150 : 90 },
+      { type: 'accessory', title: 'Isolate', durationMin: 17, targetCategories: ['Arms', 'Core', 'Shoulders', 'Legs'], recommendedRestSeconds: trainingProfile.goal === 'endurance' ? 60 : 75 },
+      { type: 'cooldown', title: 'Cool', durationMin: 8, targetCategories: ['Active Recovery', 'Core'], notes: 'Static stretching + down regulation' },
+    ];
+
+    const scaling = trainingProfile.sessionLengthMin / 60;
+    return base.map(block => ({
+      ...block,
+      durationMin: Math.max(5, Math.round(block.durationMin * scaling)),
+    }));
+  }, [trainingProfile.goal, trainingProfile.sessionLengthMin]);
+
+  const [selectedBlockType, setSelectedBlockType] = useState<'all' | WorkoutBlockType>('all');
+
+  const [plannerSelections, setPlannerSelections] = useState<Record<'compound' | 'isolate' | 'finisher', ExerciseDefinition[]>>({
+    compound: [],
+    isolate: [],
+    finisher: [],
+  });
 
   const findPreviousStats = (exerciseName: string) => {
-    const sortedHistory = [...allHistory].filter(w => w.completed).sort((a, b) => 
+    const sortedHistory = [...allHistory].filter(w => w.completed).sort((a, b) =>
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
 
@@ -65,82 +119,205 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     return undefined;
   };
 
-  const handleSetChange = (exerciseId: string, setIndex: number, field: keyof SetLog, value: string) => {
-    if (!activeWorkout) return;
-    const updated = { ...activeWorkout };
-    const exercise = updated.exercises.find(e => e.id === exerciseId);
-    if (exercise) {
-      const set = exercise.sets[setIndex];
-      if (set) {
-        (set as any)[field] = Number(value);
-      }
-      onUpdate(updated);
+
+  const goalExercisePlan = useMemo(() => {
+    if (trainingProfile.goal === 'strength') {
+      return {
+        compound: '2-4 exercises',
+        isolate: '1-2 exercises',
+        finisher: '0 finishers (prefer core/mobility)',
+      };
     }
+    if (trainingProfile.goal === 'endurance') {
+      return {
+        compound: '2-3 exercises',
+        isolate: '3-4 exercises',
+        finisher: '1-2 finishers',
+      };
+    }
+    return {
+      compound: '2-4 exercises',
+      isolate: '3-5 exercises',
+      finisher: '1-2 finishers',
+    };
+  }, [trainingProfile.goal]);
+
+  const plannerPhaseConfig: Record<'compound' | 'isolate' | 'finisher', { categories: string[]; include?: string[]; exclude?: string[]; enforceSplitFocus?: boolean; splitOptionalCategories?: string[] }> = {
+    compound: {
+      categories: ['Chest', 'Back', 'Legs', 'Shoulders'],
+      exclude: ['curl', 'extension', 'raise', 'pushdown', 'plank', 'twist', 'crunch'],
+      enforceSplitFocus: true,
+    },
+    isolate: {
+      categories: ['Arms', 'Core', 'Shoulders', 'Legs'],
+      include: ['curl', 'extension', 'raise', 'pushdown', 'fly', 'plank', 'crunch', 'twist'],
+      enforceSplitFocus: true,
+    },
+    finisher: {
+      categories: ['Cardio', 'Core', 'Active Recovery'],
+      include: ['assault bike', 'jump rope', 'rowing machine', 'mountain', 'carry', 'swing', 'stair'],
+      splitOptionalCategories: ['Cardio', 'Core', 'Active Recovery'],
+    },
+  };
+
+  const plannerSuggestions = useMemo(() => {
+    const scoreForPhase = (exercise: ExerciseDefinition, phase: keyof typeof plannerPhaseConfig) => {
+      const config = plannerPhaseConfig[phase];
+      const lower = exercise.name.toLowerCase();
+      const categoryHit = config.categories.includes(exercise.category);
+      const includeHit = config.include?.some(k => lower.includes(k)) || false;
+      const excludeHit = config.exclude?.some(k => lower.includes(k)) || false;
+
+      return (categoryHit ? 20 : 0) + (includeHit ? 14 : 0) - (excludeHit ? 14 : 0);
+    };
+
+    const phaseAllowsCategory = (phase: keyof typeof plannerPhaseConfig, category: string) => {
+      const config = plannerPhaseConfig[phase];
+      if (!splitFocusCategories.length || !config.enforceSplitFocus) return true;
+      if (splitFocusCategories.includes(category)) return true;
+      return config.splitOptionalCategories?.includes(category) || false;
+    };
+
+    const phases: (keyof typeof plannerPhaseConfig)[] = ['compound', 'isolate', 'finisher'];
+    return phases.reduce((acc, phase) => {
+      acc[phase] = [...availableExercises]
+        .filter(ex => phaseAllowsCategory(phase, ex.category))
+        .map(ex => ({ ex, score: scoreForPhase(ex, phase) }))
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score || a.ex.name.localeCompare(b.ex.name))
+        .slice(0, 8)
+        .map(item => item.ex);
+      return acc;
+    }, {} as Record<'compound' | 'isolate' | 'finisher', ExerciseDefinition[]>);
+  }, [availableExercises, splitFocusCategories]);
+
+  const togglePlannerSelection = (phase: 'compound' | 'isolate' | 'finisher', exercise: ExerciseDefinition) => {
+    setPlannerSelections(prev => {
+      const exists = prev[phase].some(item => item.name.toLowerCase() === exercise.name.toLowerCase());
+      return {
+        ...prev,
+        [phase]: exists
+          ? prev[phase].filter(item => item.name.toLowerCase() !== exercise.name.toLowerCase())
+          : [...prev[phase], exercise],
+      };
+    });
+  };
+
+  const plannedExercises = useMemo(() => {
+    return [
+      ...plannerSelections.compound,
+      ...plannerSelections.isolate,
+      ...plannerSelections.finisher,
+    ];
+  }, [plannerSelections]);
+
+  const parseSetValue = (field: keyof SetLog, value: string): number | undefined => {
+    if (value.trim() === '') return undefined;
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return undefined;
+
+    if (field === 'reps' || field === 'durationMinutes') {
+      return Math.max(0, Math.round(parsed));
+    }
+
+    if (field === 'weight') {
+      return Math.max(0, Math.round(parsed * 10) / 10);
+    }
+
+    return undefined;
+  };
+
+  const updateExerciseById = (exerciseId: string, updater: (exercise: Exercise) => Exercise) => {
+    if (!activeWorkout) return;
+
+    const exerciseIndex = activeWorkout.exercises.findIndex(e => e.id === exerciseId);
+    if (exerciseIndex === -1) return;
+
+    const updatedExercises = [...activeWorkout.exercises];
+    updatedExercises[exerciseIndex] = updater(updatedExercises[exerciseIndex]);
+
+    onUpdate({
+      ...activeWorkout,
+      exercises: updatedExercises,
+    });
+  };
+
+  const handleSetChange = (exerciseId: string, setIndex: number, field: keyof SetLog, value: string) => {
+    const parsedValue = parseSetValue(field, value);
+
+    updateExerciseById(exerciseId, (exercise) => {
+      const updatedSets = exercise.sets.map((set, index) => {
+        if (index !== setIndex) return set;
+        return {
+          ...set,
+          [field]: parsedValue,
+        };
+      });
+
+      return {
+        ...exercise,
+        sets: updatedSets,
+      };
+    });
   };
 
   const handleEquipmentChange = (exerciseId: string, equipment: EquipmentType) => {
-    if (!activeWorkout) return;
-    const updated = { ...activeWorkout };
-    const exercise = updated.exercises.find(e => e.id === exerciseId);
-    if (exercise) {
-      exercise.equipment = equipment;
-      onUpdate(updated);
-    }
+    updateExerciseById(exerciseId, (exercise) => ({
+      ...exercise,
+      equipment,
+    }));
   };
 
   const toggleSetComplete = (exerciseId: string, setIndex: number) => {
-    if (!activeWorkout) return;
-    const updated = { ...activeWorkout };
-    const exercise = updated.exercises.find(e => e.id === exerciseId);
-    if (exercise) {
-      const set = exercise.sets[setIndex];
-      if (set) {
-        set.isCompleted = !set.isCompleted;
-      }
-      onUpdate(updated);
-    }
+    updateExerciseById(exerciseId, (exercise) => ({
+      ...exercise,
+      sets: exercise.sets.map((set, index) => index === setIndex ? { ...set, isCompleted: !set.isCompleted } : set),
+    }));
   };
 
   const addSet = (exerciseId: string) => {
-    if (!activeWorkout) return;
-    const updated = { ...activeWorkout };
-    const exercise = updated.exercises.find(e => e.id === exerciseId);
-    if (exercise) {
+    updateExerciseById(exerciseId, (exercise) => {
       const lastSet = exercise.sets[exercise.sets.length - 1];
       const isTimed = ['Cardio', 'Active Recovery'].includes(exercise.category);
-      
-      exercise.sets.push({ 
-        reps: isTimed ? undefined : (lastSet?.reps || 0), 
-        weight: isTimed ? undefined : (lastSet?.weight || 0),
-        durationMinutes: isTimed ? (lastSet?.durationMinutes || 0) : undefined,
-        isCompleted: false 
-      });
-      onUpdate(updated);
-    }
+
+      return {
+        ...exercise,
+        sets: [
+          ...exercise.sets,
+          {
+            reps: isTimed ? undefined : (lastSet?.reps ?? 0),
+            weight: isTimed ? undefined : (lastSet?.weight ?? 0),
+            durationMinutes: isTimed ? (lastSet?.durationMinutes ?? 0) : undefined,
+            isCompleted: false,
+          },
+        ],
+      };
+    });
   };
 
   const removeSet = (exerciseId: string, setIndex: number) => {
-    if (!activeWorkout) return;
-    const updated = { ...activeWorkout };
-    const exercise = updated.exercises.find(e => e.id === exerciseId);
-    if (exercise && exercise.sets.length > 1) {
-      exercise.sets.splice(setIndex, 1);
-      onUpdate(updated);
-    }
+    updateExerciseById(exerciseId, (exercise) => {
+      if (exercise.sets.length <= 1) return exercise;
+      return {
+        ...exercise,
+        sets: exercise.sets.filter((_, index) => index !== setIndex),
+      };
+    });
   };
 
   const addExercise = (name: string = newExercise.name, category: string = newExercise.category, equipment: EquipmentType = newExercise.equipment) => {
     if (!activeWorkout || !name.trim()) return;
-    
+
     // Check if exercise already in current session
     if (activeWorkout.exercises.some(e => e.name.toLowerCase() === name.toLowerCase())) return;
 
     const finalCategory = category || 'Push';
-    
+
     // Find exercise definition for recommendations
     const definition = availableExercises.find(ex => ex.name.toLowerCase() === name.toLowerCase())
                     || COMMON_EXERCISES.find(ex => ex.name.toLowerCase() === name.toLowerCase());
-    
+
     // Check if this is a brand new exercise
     if (!definition && !availableExercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
       onNewExerciseCreated({ name: name.trim(), category: finalCategory });
@@ -162,11 +339,11 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       category: finalCategory,
       equipment: finalEquipment,
       previousStats: prevStats,
-      sets: isTimed ? 
-        (prevStats ? prevStats.map(s => ({ durationMinutes: s.durationMinutes, isCompleted: false })) : 
+      sets: isTimed ?
+        (prevStats ? prevStats.map(s => ({ durationMinutes: s.durationMinutes, isCompleted: false })) :
          (definition?.recommendedSets ? definition.recommendedSets.map(s => ({ durationMinutes: s.durationMinutes, isCompleted: false })) :
           [{ durationMinutes: 0, isCompleted: false }])) :
-        (prevStats ? prevStats.map(s => ({ reps: s.reps || 10, weight: maxPrevWeight, isCompleted: false })) : 
+        (prevStats ? prevStats.map(s => ({ reps: s.reps || 10, weight: maxPrevWeight, isCompleted: false })) :
           (definition?.recommendedSets ? definition.recommendedSets.map(s => ({ reps: s.reps, weight: s.weight, isCompleted: false })) : [
             { reps: 10, weight: 0, isCompleted: false },
             { reps: 10, weight: 0, isCompleted: false },
@@ -183,56 +360,151 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   };
 
   const recommendations = useMemo(() => {
-    const splitLabel = splitDay?.label.toLowerCase() || '';
-    
-    // Mapping split types to relevant categories
-    const categoryMap: Record<string, string[]> = {
-      push: ['Chest', 'Shoulders', 'Arms'],
-      pull: ['Back', 'Arms'],
-      legs: ['Legs'],
-      upper: ['Chest', 'Back', 'Shoulders', 'Arms'],
-      lower: ['Legs', 'Core'],
-      'full body': ['Chest', 'Back', 'Legs', 'Shoulders'],
-      strength: ['Chest', 'Back', 'Legs', 'Shoulders'],
-      condition: ['Cardio'],
-      endurance: ['Cardio'],
-      mobility: ['Active Recovery'],
-      recovery: ['Active Recovery'],
-      rest: ['Active Recovery']
+    const phaseHints: Record<WorkoutBlockType, { categories: string[]; includeKeywords?: string[]; excludeKeywords?: string[] }> = {
+      warmup: {
+        categories: ['Cardio', 'Active Recovery'],
+        includeKeywords: ['walking', 'cycling', 'elliptical', 'mobility', 'stretch', 'foam', 'yoga']
+      },
+      skill_power: {
+        categories: ['Legs', 'Shoulders', 'Cardio'],
+        includeKeywords: ['jump', 'sprint', 'swing', 'clean', 'press']
+      },
+      compound: {
+        categories: ['Chest', 'Back', 'Legs', 'Shoulders'],
+        excludeKeywords: ['curl', 'extension', 'raise', 'pushdown', 'plank', 'crunch', 'carry', 'twist']
+      },
+      accessory: {
+        categories: ['Arms', 'Core', 'Shoulders', 'Legs'],
+        includeKeywords: ['curl', 'extension', 'raise', 'pushdown', 'plank', 'crunch', 'carry', 'twist', 'fly']
+      },
+      cooldown: {
+        categories: ['Active Recovery', 'Core'],
+        includeKeywords: ['stretch', 'mobility', 'foam', 'yoga', 'pilates', 'cool']
+      },
     };
 
-    const targetCategories = Object.keys(categoryMap).find(k => splitLabel.includes(k))
-      ? categoryMap[Object.keys(categoryMap).find(k => splitLabel.includes(k))!]
-      : [];
+    const splitCategories = splitFocusCategories;
+    const phaseConfig = selectedBlockType === 'all' ? null : phaseHints[selectedBlockType];
 
-    if (targetCategories.length === 0) return availableExercises.slice(0, 5);
+    const exercisesInSession = new Set((activeWorkout?.exercises || []).map(e => e.name.toLowerCase()));
+    const recentCompleted = allHistory
+      .filter(w => w.completed)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 10);
 
-    // Filter available exercises to match categories
-    const filtered = availableExercises.filter(ex => 
-      targetCategories.includes(ex.category) && 
-      (!activeWorkout || !activeWorkout.exercises.some(e => e.name === ex.name))
-    );
-
-    // If we have plenty, take a random sample of 6
-    return filtered.sort(() => 0.5 - Math.random()).slice(0, 6);
-  }, [splitDay, availableExercises, activeWorkout]);
-
-  const categoriesInSession = useMemo(() => {
-    if (!activeWorkout) return ['All'];
-    const cats = new Set(activeWorkout.exercises.map(e => e.category));
-    return ['All', ...Array.from(cats)];
-  }, [activeWorkout]);
-
-  const filteredExercises = useMemo(() => {
-    if (!activeWorkout) return {};
-    return activeWorkout.exercises.reduce((acc: Record<string, Exercise[]>, ex) => {
-      if (viewFilter !== 'All' && ex.category !== viewFilter) return acc;
-      const cat = ex.category || 'General';
-      if (!acc[cat]) acc[cat] = [];
-      acc[cat].push(ex);
+    const frequencyByName = recentCompleted.reduce<Record<string, number>>((acc, workout) => {
+      workout.exercises.forEach(ex => {
+        const key = ex.name.toLowerCase();
+        acc[key] = (acc[key] || 0) + 1;
+      });
       return acc;
-    }, {} as Record<string, Exercise[]>);
-  }, [activeWorkout, viewFilter]);
+    }, {});
+
+    const latestIndexByName = recentCompleted.reduce<Record<string, number>>((acc, workout, index) => {
+      workout.exercises.forEach(ex => {
+        const key = ex.name.toLowerCase();
+        if (acc[key] === undefined) acc[key] = index;
+      });
+      return acc;
+    }, {});
+
+    const basePool = availableExercises.filter(ex => !exercisesInSession.has(ex.name.toLowerCase()));
+
+    const scored = basePool
+      .map(ex => {
+        const key = ex.name.toLowerCase();
+        const frequencyPenalty = frequencyByName[key] || 0;
+        const recencyPenalty = latestIndexByName[key] === undefined ? 0 : (10 - latestIndexByName[key]);
+        const splitBonus = splitCategories.includes(ex.category) ? 20 : 0;
+
+        let phaseBonus = 0;
+        let phasePenalty = 0;
+        if (phaseConfig) {
+          const lowerName = ex.name.toLowerCase();
+          const inPhaseCategory = phaseConfig.categories.includes(ex.category);
+          const includeHit = phaseConfig.includeKeywords?.some(keyword => lowerName.includes(keyword)) || false;
+          const excludeHit = phaseConfig.excludeKeywords?.some(keyword => lowerName.includes(keyword)) || false;
+
+          if (inPhaseCategory) phaseBonus += 24;
+          if (includeHit) phaseBonus += 18;
+          if (excludeHit) phasePenalty += 16;
+        }
+
+        const noveltyBonus = frequencyByName[key] ? 0 : 10;
+        const score = splitBonus + phaseBonus + noveltyBonus - phasePenalty - (frequencyPenalty * 6) - recencyPenalty;
+
+        return { exercise: ex, score };
+      })
+      .sort((a, b) => b.score - a.score || a.exercise.name.localeCompare(b.exercise.name));
+
+    const trimmed = scored.filter(item => selectedBlockType === 'all' || item.score > 6).slice(0, 6);
+
+    if (trimmed.length === 0 && selectedBlockType !== 'all') {
+      return scored.slice(0, 6).map(item => item.exercise);
+    }
+
+    return trimmed.map(item => item.exercise);
+  }, [splitDay, availableExercises, activeWorkout, allHistory, selectedBlockType]);
+
+  const workoutBlocksForView = useMemo(() => activeWorkout?.blocks?.length ? activeWorkout.blocks : sessionBlocks, [activeWorkout?.blocks, sessionBlocks]);
+
+  const blockTitleByType = useMemo(() => {
+    return workoutBlocksForView.reduce<Record<WorkoutBlockType, string>>((acc, block) => {
+      acc[block.type] = block.title;
+      return acc;
+    }, {
+      warmup: 'Warm',
+      skill_power: 'Compound',
+      compound: 'Compound',
+      accessory: 'Isolate',
+      cooldown: 'Cool',
+    });
+  }, [workoutBlocksForView]);
+
+  const detectExercisePhase = (exercise: Exercise): WorkoutBlockType => {
+    const lower = exercise.name.toLowerCase();
+
+    if (exercise.category === 'Cardio' || exercise.category === 'Active Recovery') {
+      if (lower.includes('stretch') || lower.includes('mobility') || lower.includes('cool')) return 'cooldown';
+      if (lower.includes('jump') || lower.includes('sprint') || lower.includes('swing')) return 'compound';
+      return 'warmup';
+    }
+
+    if (['Chest', 'Back', 'Legs'].includes(exercise.category)) return 'compound';
+    if (exercise.category === 'Shoulders' && (lower.includes('press') || lower.includes('push press'))) return 'compound';
+    if (['Arms', 'Core'].includes(exercise.category)) return 'accessory';
+    if (exercise.category === 'Shoulders') return 'accessory';
+
+    return 'accessory';
+  };
+
+  const phaseFilters = useMemo(() => {
+    const present = new Set((activeWorkout?.exercises || []).map(ex => detectExercisePhase(ex)));
+    return ['All', ...workoutBlocksForView.filter(block => present.has(block.type)).map(block => block.title)];
+  }, [activeWorkout, workoutBlocksForView]);
+
+  const groupedExercises = useMemo(() => {
+    if (!activeWorkout) return [] as Array<{ blockType: WorkoutBlockType; title: string; exercises: Exercise[] }>;
+
+    const grouped: Record<WorkoutBlockType, Exercise[]> = {
+      warmup: [],
+      skill_power: [],
+      compound: [],
+      accessory: [],
+      cooldown: [],
+    };
+
+    activeWorkout.exercises.forEach(ex => {
+      const blockType = detectExercisePhase(ex);
+      const blockTitle = blockTitleByType[blockType];
+      if (viewFilter !== 'All' && viewFilter !== blockTitle) return;
+      grouped[blockType].push(ex);
+    });
+
+    return workoutBlocksForView
+      .map(block => ({ blockType: block.type, title: block.title, exercises: grouped[block.type] || [] }))
+      .filter(group => group.exercises.length > 0);
+  }, [activeWorkout, viewFilter, workoutBlocksForView, blockTitleByType]);
 
   const uniqueWorkoutNames = useMemo(() => {
     const names = new Set(completedWorkouts.map(w => w.name));
@@ -244,9 +516,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
     // Date filtering
     if (historyDateRange !== 'all') {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - Number(historyDateRange));
-      filtered = filtered.filter(w => new Date(w.date) >= cutoff);
+      const cutoff = getDateDaysAgo(Number(historyDateRange));
+      filtered = filtered.filter(w => isOnOrAfterDate(w.date, cutoff));
     }
 
     // Type filtering
@@ -257,14 +528,52 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     return filtered;
   }, [completedWorkouts, historyDateRange, historyTypeFilter]);
 
+  const progressionByWorkoutId = useMemo(() => {
+    const completed = allHistory
+      .filter(w => w.completed)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const latestMetricsByExercise: Record<string, { bestWeight: number; bestReps: number; totalDuration: number }> = {};
+    const result: Record<string, string[]> = {};
+
+    completed.forEach((workout) => {
+      const notes: string[] = [];
+
+      workout.exercises.forEach((exercise) => {
+        const key = exercise.name.toLowerCase();
+        const previous = latestMetricsByExercise[key];
+
+        const bestWeight = Math.max(...exercise.sets.map(s => s.weight || 0), 0);
+        const bestReps = Math.max(...exercise.sets.map(s => s.reps || 0), 0);
+        const totalDuration = exercise.sets.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+
+        if (previous) {
+          if (bestWeight > previous.bestWeight) {
+            notes.push(`${exercise.name} +${(bestWeight - previous.bestWeight).toFixed(1)} lb`);
+          } else if (bestReps > previous.bestReps) {
+            notes.push(`${exercise.name} +${bestReps - previous.bestReps} reps`);
+          } else if (totalDuration > previous.totalDuration) {
+            notes.push(`${exercise.name} +${totalDuration - previous.totalDuration} min`);
+          }
+        }
+
+        latestMetricsByExercise[key] = { bestWeight, bestReps, totalDuration };
+      });
+
+      result[workout.id] = notes.slice(0, 2);
+    });
+
+    return result;
+  }, [allHistory]);
+
   const filteredSuggestions = useMemo(() => {
     if (!newExercise.name.trim()) return [];
     const lowerName = newExercise.name.toLowerCase();
-    const matches = availableExercises.filter(ex => 
+    const matches = availableExercises.filter(ex =>
       ex.name.toLowerCase().includes(lowerName) ||
       ex.category.toLowerCase().includes(lowerName)
     ).slice(0, 5);
-    
+
     return matches;
   }, [newExercise.name, availableExercises]);
 
@@ -275,6 +584,20 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
   const handleFinishSession = () => {
     if (!activeWorkout) return;
+
+    const totalSets = activeWorkout.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
+    const completedSets = activeWorkout.exercises.reduce(
+      (sum, exercise) => sum + exercise.sets.filter(set => set.isCompleted).length,
+      0,
+    );
+
+    if (totalSets > 0 && completedSets < totalSets) {
+      const shouldFinish = window.confirm(
+        `You have ${totalSets - completedSets} incomplete set${totalSets - completedSets === 1 ? '' : 's'}. Finish anyway?`,
+      );
+      if (!shouldFinish) return;
+    }
+
     onUpdate({ ...activeWorkout, completed: true });
     setView('history');
   };
@@ -283,7 +606,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-24">
       {/* View Toggle */}
       <div className="bg-stone-100 p-1 rounded-2xl flex">
-        <button 
+        <button
           onClick={() => setView('active')}
           className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${
             view === 'active' ? 'bg-white text-[#7c9082] shadow-sm' : 'text-stone-400'
@@ -291,7 +614,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
         >
           {activeWorkout ? 'Active Session' : 'Start Session'}
         </button>
-        <button 
+        <button
           onClick={() => setView('history')}
           className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${
             view === 'history' ? 'bg-white text-[#7c9082] shadow-sm' : 'text-stone-400'
@@ -303,20 +626,83 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
       {view === 'active' ? (
         !activeWorkout ? (
-          <div className="py-20 text-center space-y-6">
-            <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mx-auto text-3xl">
-              💪
+          <div className="space-y-6">
+            <header className="text-center pt-4">
+              <h3 className="serif text-2xl text-stone-800">Workout Planner</h3>
+              <p className="text-sm text-stone-400 mt-1">Plan your phases, then start and track your session.</p>
+              <p className="text-[11px] text-[#7c9082] mt-2 font-semibold">{splitDay.label} focus: {splitFocusCategories.join(' • ') || 'General'}</p>
+            </header>
+
+            <div className="bg-white border border-stone-100 rounded-[2rem] p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Goal-aligned structure</p>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-[#7c9082]">{trainingProfile.goal}</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {sessionBlocks.map((block) => (
+                  <div key={block.type} className="bg-stone-50 border border-stone-100 rounded-2xl px-3 py-2.5 text-center min-h-[64px] flex flex-col justify-center">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">{block.title}</p>
+                    <p className="text-[11px] text-stone-400 mt-1 font-medium">{block.durationMin} min</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-stone-50 rounded-2xl px-4 py-3 text-[11px] text-stone-500 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <span><strong>Sets:</strong> {goalPrescription.sets}</span>
+                <span><strong>Reps:</strong> {goalPrescription.reps}</span>
+                <span><strong>Rest:</strong> {goalPrescription.rest}</span>
+              </div>
             </div>
-            <div>
-              <h3 className="serif text-xl text-stone-800">Ready to move?</h3>
-              <p className="text-sm text-stone-400 mt-1">Today is your <span className="font-bold text-[#7c9082]">{splitDay.label}</span> day.</p>
+
+            <div className="space-y-4">
+              {([
+                { key: 'compound', title: 'Compound', target: goalExercisePlan.compound },
+                { key: 'isolate', title: 'Isolate', target: goalExercisePlan.isolate },
+                { key: 'finisher', title: 'Finisher', target: goalExercisePlan.finisher },
+              ] as const).map((phase) => (
+                <section key={phase.key} className="bg-white border border-stone-100 rounded-[2rem] p-5 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-stone-500">{phase.title}</h4>
+                    <span className="text-[10px] text-[#7c9082] font-bold">{phase.target}</span>
+                  </div>
+                  {plannerSuggestions[phase.key].length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-stone-200 bg-stone-50 p-3 text-[11px] text-stone-400">
+                      No {phase.title.toLowerCase()} suggestions match your {splitDay.label.toLowerCase()} focus yet.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {plannerSuggestions[phase.key].map((ex) => {
+                        const selected = plannerSelections[phase.key].some(item => item.name.toLowerCase() === ex.name.toLowerCase());
+                        return (
+                          <button
+                            key={ex.name}
+                            onClick={() => togglePlannerSelection(phase.key, ex)}
+                            className={`text-left px-3 py-2 rounded-xl border transition-all ${selected ? 'bg-[#7c9082]/10 border-[#7c9082]/30' : 'bg-stone-50 border-stone-100 hover:border-stone-200'}`}
+                          >
+                            <span className="text-[11px] font-semibold text-stone-700 block leading-tight">{ex.name}</span>
+                            <span className="text-[9px] text-stone-400 uppercase tracking-wide">{ex.category}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              ))}
             </div>
-            <button 
-              onClick={() => onStart(`${splitDay.label} Session`)}
-              className="px-10 py-4 bg-[#7c9082] text-white rounded-full font-semibold text-sm shadow-xl shadow-[#7c9082]/20 active:scale-95 transition-all"
-            >
-              Start Workout
-            </button>
+
+            <div className="bg-white border border-stone-100 rounded-[2rem] p-5 shadow-sm flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Planned exercises</p>
+                <p className="text-sm text-stone-600 mt-1">{plannedExercises.length} selected across phases</p>
+              </div>
+              <button
+                onClick={() => onStart(`${splitDay?.label || 'Workout'} Session`, sessionBlocks, plannedExercises)}
+                className="px-8 py-3 bg-[#7c9082] text-white rounded-full font-semibold text-sm shadow-xl shadow-[#7c9082]/20 active:scale-95 transition-all"
+              >
+                Start Workout
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-8">
@@ -329,7 +715,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 </div>
                 <h2 className="serif text-2xl text-stone-800">{activeWorkout.name}</h2>
               </div>
-              <button 
+              <button
                 onClick={() => setIsAdding(!isAdding)}
                 className="w-10 h-10 rounded-full bg-[#7c9082] flex items-center justify-center text-white hover:bg-[#6b7d70] transition-all shadow-lg"
               >
@@ -338,33 +724,63 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
             </header>
 
             {/* Recommendations Bar */}
-            {!isAdding && recommendations.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              <button
+                onClick={() => setSelectedBlockType('all')}
+                className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap border ${selectedBlockType === 'all' ? 'bg-[#7c9082] border-[#7c9082] text-white' : 'bg-white border-stone-100 text-stone-400'}`}
+              >
+                All
+              </button>
+              {sessionBlocks.map((block) => (
+                <button
+                  key={block.type}
+                  onClick={() => setSelectedBlockType(block.type)}
+                  className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap border ${selectedBlockType === block.type ? 'bg-[#7c9082] border-[#7c9082] text-white' : 'bg-white border-stone-100 text-stone-400'}`}
+                >
+                  {block.title}
+                </button>
+              ))}
+            </div>
+
+            {/* Recommendations Bar */}
+            {!isAdding && (
               <div className="space-y-3">
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400 ml-1">Suggested for {splitDay.label}</h3>
-                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 px-1">
-                  {recommendations.map((ex, i) => (
-                    <div key={i} className="relative group">
-                      <button
-                        onClick={() => addExercise(ex.name, ex.category)}
-                        className="bg-white border border-stone-100 px-4 py-3 rounded-2xl shadow-sm flex flex-col items-start min-w-[140px] hover:border-[#7c9082] transition-colors"
-                      >
-                        <span className="text-xs font-bold text-stone-700 leading-tight mb-1 group-hover:text-[#7c9082] transition-colors">{ex.name}</span>
-                        <span className="text-[9px] font-bold uppercase tracking-tighter text-stone-300">{ex.category}</span>
-                      </button>
-                      
-                      {/* Tooltip */}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-stone-800 text-white text-[8px] font-bold uppercase tracking-widest rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30">
-                        {ex.equipment ? `${EQUIPMENT_CONFIG[ex.equipment].icon} ${EQUIPMENT_CONFIG[ex.equipment].label}` : 'No Equipment Info'}
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                    Suggested for {selectedBlockType === 'all' ? splitDay.label : sessionBlocks.find(b => b.type === selectedBlockType)?.title}
+                  </h3>
+                  {selectedBlockType !== 'all' && (
+                    <span className="text-[9px] text-[#7c9082] font-bold uppercase tracking-widest">phase filtered</span>
+                  )}
                 </div>
+
+                {recommendations.length === 0 ? (
+                  <div className="bg-stone-50 border border-stone-100 rounded-2xl p-4 text-[11px] text-stone-400">
+                    No direct matches for this phase yet. Try “Show All” or add a custom exercise.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {recommendations.map((ex, i) => (
+                      <button
+                        key={i}
+                        onClick={() => addExercise(ex.name, ex.category)}
+                        className="bg-white border border-stone-100 px-4 py-3 rounded-2xl shadow-sm text-left hover:border-[#7c9082] transition-colors"
+                      >
+                        <span className="text-xs font-bold text-stone-700 leading-tight mb-1 block">{ex.name}</span>
+                        <span className="text-[9px] font-bold uppercase tracking-tighter text-stone-300">{ex.category}</span>
+                        <span className="mt-1 block text-[9px] text-stone-300">
+                          {ex.equipment ? `${EQUIPMENT_CONFIG[ex.equipment].icon} ${EQUIPMENT_CONFIG[ex.equipment].label}` : 'No Equipment Info'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
             {activeWorkout.exercises.length > 0 && (
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                {categoriesInSession.map(cat => (
+                {phaseFilters.map(cat => (
                   <button
                     key={cat}
                     onClick={() => setViewFilter(cat)}
@@ -419,7 +835,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-stone-300 uppercase tracking-widest ml-1">Category</label>
@@ -452,7 +868,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                     </div>
                   </div>
 
-                  <button 
+                  <button
                     onClick={() => addExercise()}
                     disabled={!newExercise.name.trim()}
                     className="w-full bg-[#7c9082] text-white py-4 rounded-2xl text-sm font-bold shadow-md shadow-[#7c9082]/20 disabled:opacity-50"
@@ -464,10 +880,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
             )}
 
             <div className="space-y-10">
-              {(Object.entries(filteredExercises) as [string, Exercise[]][]).map(([category, exercises]) => (
-                <div key={category} className="space-y-4">
+              {groupedExercises.map(({ blockType, title, exercises }) => (
+                <div key={blockType} className="space-y-4">
                   <div className="flex items-center gap-3 px-2">
-                    <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#d4a373]">{category}</h3>
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#d4a373]">{title}</h3>
                     <div className="h-px flex-1 bg-stone-100"></div>
                   </div>
                   {exercises.map((exercise) => {
@@ -482,7 +898,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                                 <span className="text-[9px] font-bold uppercase text-[#7c9082] bg-[#7c9082]/5 px-2 py-0.5 rounded-full">
                                   {EQUIPMENT_CONFIG[exercise.equipment || 'barbell'].icon} {EQUIPMENT_CONFIG[exercise.equipment || 'barbell'].label}
                                 </span>
-                                <select 
+                                <select
                                   className="text-[9px] font-bold uppercase text-stone-300 bg-transparent border-none outline-none appearance-none cursor-pointer hover:text-stone-400"
                                   value={exercise.equipment || 'barbell'}
                                   onChange={(e) => handleEquipmentChange(exercise.id, e.target.value as EquipmentType)}
@@ -520,11 +936,11 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                                   {prev ? (isTimed ? `${prev.durationMinutes}m` : `${prev.weight}x${prev.reps}`) : '--'}
                                 </div>
                                 {isTimed ? (
-                                  <input type="number" className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.durationMinutes || ''} onChange={(e) => handleSetChange(exercise.id, idx, 'durationMinutes', e.target.value)} />
+                                  <input type="number" min={0} step={1} className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.durationMinutes ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'durationMinutes', e.target.value)} />
                                 ) : (
                                   <>
-                                    <input type="number" className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.weight || ''} onChange={(e) => handleSetChange(exercise.id, idx, 'weight', e.target.value)} />
-                                    <input type="number" className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.reps || ''} onChange={(e) => handleSetChange(exercise.id, idx, 'reps', e.target.value)} />
+                                    <input type="number" min={0} step={0.5} className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.weight ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'weight', e.target.value)} />
+                                    <input type="number" min={0} step={1} className="w-full bg-transparent text-center text-sm font-semibold outline-none border-b border-stone-200" value={set.reps ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'reps', e.target.value)} />
                                   </>
                                 )}
                                 <div className="flex justify-end gap-1">
@@ -543,7 +959,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
               ))}
             </div>
 
-            <button 
+            <button
               onClick={handleFinishSession}
               className="w-full bg-[#7c9082] text-white py-5 rounded-3xl font-semibold shadow-xl shadow-[#7c9082]/20 hover:bg-[#6b7d70] transition-all"
             >
@@ -571,8 +987,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                   key={range.value}
                   onClick={() => setHistoryDateRange(range.value as any)}
                   className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-all border ${
-                    historyDateRange === range.value 
-                      ? 'bg-[#7c9082] border-[#7c9082] text-white shadow-md' 
+                    historyDateRange === range.value
+                      ? 'bg-[#7c9082] border-[#7c9082] text-white shadow-md'
                       : 'bg-white border-stone-100 text-stone-400'
                   }`}
                 >
@@ -588,8 +1004,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                   key={name}
                   onClick={() => setHistoryTypeFilter(name)}
                   className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-all border ${
-                    historyTypeFilter === name 
-                      ? 'bg-[#d4a373] border-[#d4a373] text-white shadow-md' 
+                    historyTypeFilter === name
+                      ? 'bg-[#d4a373] border-[#d4a373] text-white shadow-md'
                       : 'bg-white border-stone-100 text-stone-400'
                   }`}
                 >
@@ -611,13 +1027,22 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                     <div>
                       <h4 className="font-semibold text-stone-700 group-hover:text-[#7c9082] transition-colors">{workout.name}</h4>
                       <p className="text-[10px] text-stone-400 font-medium">
-                        {new Date(workout.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {formatLocalDate(workout.date, { month: 'short', day: 'numeric', year: 'numeric' }, 'en-US')}
                       </p>
                     </div>
                     <span className="text-[10px] bg-stone-50 px-2 py-1 rounded-full text-stone-400 font-bold uppercase">
                       {(workout.exercises?.length || 0)} lifts
                     </span>
                   </div>
+                  {progressionByWorkoutId[workout.id]?.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {progressionByWorkoutId[workout.id].map((note, idx) => (
+                        <span key={idx} className="text-[9px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg font-medium">
+                          ↗ {note}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {workout.exercises && workout.exercises.map((ex: Exercise, i: number) => (
                       <span key={i} className="text-[9px] bg-stone-50 text-stone-500 px-2 py-1 rounded-lg flex items-center gap-1">
