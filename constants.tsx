@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AppState, Goal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType, TrainingProfile } from './types';
+import { AppState, Goal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType, TrainingProfile, ProgramSettings, MovementPattern, PrimaryMuscle } from './types';
 import { getTodayString } from './utils/dateUtils';
 
 const todayString = getTodayString();
@@ -13,7 +13,64 @@ export const DEFAULT_TRAINING_PROFILE: TrainingProfile = {
   sessionLengthMin: 60,
 };
 
-export const COMMON_EXERCISES: ExerciseDefinition[] = [
+
+export const DEFAULT_PROGRAM_SETTINGS: ProgramSettings = {
+  goal: 'hypertrophy',
+  daysPerWeek: 5,
+  emphasis: 'balanced',
+  sessionLengthMin: 60,
+};
+
+const inferPrimaryMuscles = (category: string): PrimaryMuscle[] => {
+  const key = category.toLowerCase();
+  if (key.includes('chest')) return ['chest', 'triceps'];
+  if (key.includes('back')) return ['back', 'biceps'];
+  if (key.includes('shoulder')) return ['shoulders', 'triceps'];
+  if (key.includes('leg')) return ['quads', 'glutes', 'hamstrings'];
+  if (key.includes('arm')) return ['biceps', 'triceps'];
+  if (key.includes('core')) return ['core'];
+  if (key.includes('cardio')) return ['glutes', 'core'];
+  return ['core'];
+};
+
+const inferMovementPattern = (name: string, category: string): MovementPattern => {
+  const lower = name.toLowerCase();
+  if (lower.includes('squat')) return 'squat';
+  if (lower.includes('deadlift') || lower.includes('rdl') || lower.includes('hinge')) return 'hinge';
+  if (lower.includes('lunge') || lower.includes('split squat') || lower.includes('step up')) return 'lunge';
+  if (lower.includes('press') && category === 'Chest') return 'horizontal_push';
+  if (lower.includes('press') && category === 'Shoulders') return 'vertical_push';
+  if (lower.includes('row')) return 'horizontal_pull';
+  if (lower.includes('pulldown') || lower.includes('pull up') || lower.includes('chin up')) return 'vertical_pull';
+  if (lower.includes('thrust') || lower.includes('bridge')) return 'glute_bridge';
+  if (lower.includes('carry')) return 'carry';
+  if (category === 'Core') return 'core';
+  return 'isolation';
+};
+
+const enrichExercise = (exercise: any): ExerciseDefinition => {
+  const recommendedSetScheme = Array.isArray(exercise.recommendedSets) ? exercise.recommendedSets : [];
+  const firstRep = recommendedSetScheme.find((set: any) => typeof set.reps === 'number' && set.reps > 0)?.reps;
+  const repRange: [number, number] = firstRep ? [Math.max(3, firstRep - 2), Math.max(firstRep, firstRep + 2)] : [8, 12];
+  const pattern = inferMovementPattern(exercise.name, exercise.category);
+  const isCompound = ['squat', 'hinge', 'lunge', 'horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'glute_bridge'].includes(pattern);
+
+  return {
+    name: exercise.name,
+    category: exercise.category,
+    equipment: exercise.equipment || 'bodyweight',
+    recommendedSets: recommendedSetScheme.length || 3,
+    primaryMuscles: inferPrimaryMuscles(exercise.category),
+    movementPattern: pattern,
+    isCompound,
+    defaultRepRange: repRange,
+    defaultRestSec: isCompound ? 90 : 60,
+    difficulty: isCompound ? 'intermediate' : 'beginner',
+  };
+};
+
+
+const LEGACY_COMMON_EXERCISES = [
   // Chest
   { name: 'Bench Press', category: 'Chest', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 45 }, { reps: 10, weight: 95 }, { reps: 8, weight: 135 }] },
   { name: 'Incline Dumbbell Press', category: 'Chest', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 25 }, { reps: 10, weight: 35 }, { reps: 10, weight: 40 }] },
@@ -112,7 +169,35 @@ export const COMMON_EXERCISES: ExerciseDefinition[] = [
   { name: 'Kettlebell Swing', category: 'Cardio', equipment: 'kettlebell', recommendedSets: [{ reps: 20, weight: 20 }, { reps: 20, weight: 25 }, { reps: 20, weight: 35 }] },
   { name: 'Goblet Squat', category: 'Legs', equipment: 'kettlebell', recommendedSets: [{ reps: 12, weight: 20 }, { reps: 10, weight: 30 }, { reps: 10, weight: 40 }] },
   { name: 'Kettlebell Clean and Press', category: 'Shoulders', equipment: 'kettlebell', recommendedSets: [{ reps: 8, weight: 20 }, { reps: 8, weight: 25 }, { reps: 8, weight: 35 }] }
+
 ];
+
+const PROGRAM_EXERCISES: ExerciseDefinition[] = [
+  { name: 'Back Squat', category: 'Legs', equipment: 'barbell', recommendedSets: 4, primaryMuscles: ['quads','glutes'], movementPattern: 'squat', isCompound: true, defaultRepRange: [6,10], defaultRestSec: 120, difficulty: 'intermediate' },
+  { name: 'Front Squat', category: 'Legs', equipment: 'barbell', recommendedSets: 4, primaryMuscles: ['quads','glutes','core'], movementPattern: 'squat', isCompound: true, defaultRepRange: [5,8], defaultRestSec: 120, difficulty: 'advanced' },
+  { name: 'Hack Squat', category: 'Legs', equipment: 'machine', recommendedSets: 4, primaryMuscles: ['quads','glutes'], movementPattern: 'squat', isCompound: true, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Belt Squat', category: 'Legs', equipment: 'machine', recommendedSets: 4, primaryMuscles: ['quads','glutes'], movementPattern: 'squat', isCompound: true, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Barbell RDL', category: 'Legs', equipment: 'barbell', recommendedSets: 4, primaryMuscles: ['hamstrings','glutes'], movementPattern: 'hinge', isCompound: true, defaultRepRange: [6,10], defaultRestSec: 120, difficulty: 'intermediate' },
+  { name: 'Trap Bar Deadlift', category: 'Legs', equipment: 'barbell', recommendedSets: 3, primaryMuscles: ['glutes','quads','hamstrings'], movementPattern: 'hinge', isCompound: true, defaultRepRange: [4,8], defaultRestSec: 150, difficulty: 'advanced' },
+  { name: 'Barbell Hip Thrust', category: 'Legs', equipment: 'barbell', recommendedSets: 4, primaryMuscles: ['glutes','hamstrings'], movementPattern: 'glute_bridge', isCompound: true, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Machine Hip Thrust', category: 'Legs', equipment: 'machine', recommendedSets: 4, primaryMuscles: ['glutes','hamstrings'], movementPattern: 'glute_bridge', isCompound: true, defaultRepRange: [10,15], defaultRestSec: 75, difficulty: 'beginner' },
+  { name: 'Bulgarian Split Squat', category: 'Legs', equipment: 'dumbbell', recommendedSets: 3, primaryMuscles: ['glutes','quads'], movementPattern: 'lunge', isCompound: true, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Walking Lunges', category: 'Legs', equipment: 'dumbbell', recommendedSets: 3, primaryMuscles: ['glutes','quads','hamstrings'], movementPattern: 'lunge', isCompound: true, defaultRepRange: [10,16], defaultRestSec: 75, difficulty: 'beginner' },
+  { name: 'Step Ups', category: 'Legs', equipment: 'dumbbell', recommendedSets: 3, primaryMuscles: ['glutes','quads'], movementPattern: 'lunge', isCompound: true, defaultRepRange: [10,15], defaultRestSec: 75, difficulty: 'beginner' },
+  { name: 'Lying Leg Curl', category: 'Legs', equipment: 'machine', recommendedSets: 3, primaryMuscles: ['hamstrings'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [10,15], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Seated Leg Curl', category: 'Legs', equipment: 'machine', recommendedSets: 3, primaryMuscles: ['hamstrings'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [10,15], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Nordic Curl', category: 'Legs', equipment: 'bodyweight', recommendedSets: 3, primaryMuscles: ['hamstrings','glutes'], movementPattern: 'hinge', isCompound: true, defaultRepRange: [5,8], defaultRestSec: 90, difficulty: 'advanced' },
+  { name: 'Cable Kickbacks', category: 'Legs', equipment: 'cable', recommendedSets: 3, primaryMuscles: ['glutes'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Machine Abduction', category: 'Legs', equipment: 'machine', recommendedSets: 3, primaryMuscles: ['glutes'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [15,25], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Seated Calf Raise', category: 'Legs', equipment: 'machine', recommendedSets: 4, primaryMuscles: ['calves'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Standing Calf Raise', category: 'Legs', equipment: 'machine', recommendedSets: 4, primaryMuscles: ['calves'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Tibialis Raises', category: 'Legs', equipment: 'bodyweight', recommendedSets: 3, primaryMuscles: ['calves'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [15,25], defaultRestSec: 45, difficulty: 'beginner' }
+];
+
+export const COMMON_EXERCISES: ExerciseDefinition[] = [...LEGACY_COMMON_EXERCISES.map(enrichExercise), ...PROGRAM_EXERCISES].reduce((acc, ex) => {
+  if (!acc.some(item => item.name.toLowerCase() === ex.name.toLowerCase())) acc.push(ex);
+  return acc;
+}, [] as ExerciseDefinition[]);
 
 export const EQUIPMENT_CONFIG: Record<EquipmentType, { label: string; icon: string }> = {
   bodyweight: { label: 'Bodyweight', icon: '👤' },
@@ -200,7 +285,8 @@ export const INITIAL_STATE: AppState = {
   dailyHydrationGoal: 64,
   hydrationGoals: { [todayString]: 64 },
   todayStr: todayString,
-  trainingProfile: DEFAULT_TRAINING_PROFILE
+  trainingProfile: DEFAULT_TRAINING_PROFILE,
+  programSettings: DEFAULT_PROGRAM_SETTINGS
 };
 
 export const MOOD_CONFIG: Record<string, { emoji: string; color: string }> = {

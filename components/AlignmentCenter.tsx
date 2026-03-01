@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { AppState, SplitTemplate, SplitDay, CycleConfig, Goal, TrainingProfile } from '../types';
+import { AppState, SplitTemplate, SplitDay, CycleConfig, Goal, TrainingProfile, ProgramSettings } from '../types';
 import { SPLIT_TEMPLATES } from '../constants';
 import { formatLocalDate, parseDayString, toLocalDayString } from '../utils/dateUtils';
 
@@ -11,6 +11,7 @@ interface AlignmentCenterProps {
   onAddGoal: (goal: Omit<Goal, 'id' | 'progress' | 'current'>) => void;
   onDeleteGoal: (id: string) => void;
   onUpdateTrainingProfile: (profile: Partial<TrainingProfile>) => void;
+  onUpdateProgramSettings: (settings: Partial<ProgramSettings>) => void;
 }
 
 const CalendarPicker: React.FC<{ 
@@ -91,7 +92,8 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
   onUpdateCycle,
   onAddGoal,
   onDeleteGoal,
-  onUpdateTrainingProfile
+  onUpdateTrainingProfile,
+  onUpdateProgramSettings
 }) => {
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [newGoal, setNewGoal] = useState<Omit<Goal, 'id' | 'progress' | 'current'>>({
@@ -349,6 +351,68 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
                   {option.label}
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <section className="space-y-6">
+        <div className="px-1">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4a373] mb-1">Program Mode</h3>
+          <p className="text-xs text-stone-400">Coach-level weekly structure with progression and emphasis options.</p>
+        </div>
+        <div className="bg-white border border-stone-100 rounded-[2.5rem] p-6 shadow-sm space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Program Goal</label>
+              <select
+                value={state.programSettings.goal}
+                onChange={(e) => onUpdateProgramSettings({ goal: e.target.value as ProgramSettings['goal'] })}
+                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
+              >
+                <option value="hypertrophy">Hypertrophy</option>
+                <option value="strength">Strength</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Emphasis</label>
+              <select
+                value={state.programSettings.emphasis}
+                onChange={(e) => onUpdateProgramSettings({ emphasis: e.target.value as ProgramSettings['emphasis'] })}
+                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
+              >
+                <option value="balanced">Balanced</option>
+                <option value="glutes_legs_3x">Glutes/Legs 3x</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Days / Week</label>
+              <select
+                value={state.programSettings.daysPerWeek}
+                onChange={(e) => onUpdateProgramSettings({ daysPerWeek: Number(e.target.value) as ProgramSettings['daysPerWeek'] })}
+                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
+              >
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+                <option value={5}>5</option>
+                <option value={6}>6</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Session Length</label>
+              <input
+                type="number"
+                min={45}
+                max={90}
+                step={5}
+                value={state.programSettings.sessionLengthMin}
+                onChange={(e) => onUpdateProgramSettings({ sessionLengthMin: Math.max(45, Math.min(90, Number(e.target.value) || 60)) })}
+                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
+              />
             </div>
           </div>
         </div>

@@ -7,10 +7,24 @@ import HydrationPacer from './components/HydrationPacer';
 import MoodJournal from './components/MoodJournal';
 import AlignmentCenter from './components/AlignmentCenter';
 import { AppState, MoodEntry, Workout, HydrationLog, ExerciseDefinition, SplitDay, CycleConfig, Goal, WorkoutBlock, TrainingProfile, Exercise, EquipmentType } from './types';
-import { DEFAULT_TRAINING_PROFILE, INITIAL_STATE } from './constants';
+import { DEFAULT_PROGRAM_SETTINGS, DEFAULT_TRAINING_PROFILE, INITIAL_STATE } from './constants';
 import { getDateDaysAgo, getTodayString, isOnOrAfterDate, isSameLocalDay } from './utils/dateUtils';
 
 const App: React.FC = () => {
+  const normalizeExerciseDefinition = (exercise: any): ExerciseDefinition => ({
+    name: exercise.name,
+    category: exercise.category || 'Core',
+    equipment: exercise.equipment || 'bodyweight',
+    recommendedSets: typeof exercise.recommendedSets === 'number'
+      ? exercise.recommendedSets
+      : Array.isArray(exercise.recommendedSets) ? exercise.recommendedSets.length || 3 : 3,
+    primaryMuscles: exercise.primaryMuscles || ['core'],
+    movementPattern: exercise.movementPattern || 'isolation',
+    isCompound: typeof exercise.isCompound === 'boolean' ? exercise.isCompound : false,
+    defaultRepRange: exercise.defaultRepRange || [8, 12],
+    defaultRestSec: exercise.defaultRestSec || 60,
+    difficulty: exercise.difficulty || 'beginner',
+  });
   const [activeTab, setActiveTab] = useState('home');
   const [dayTick, setDayTick] = useState(() => getTodayString());
   const [state, setState] = useState<AppState>(() => {
@@ -21,7 +35,7 @@ const App: React.FC = () => {
       const mergedAvailableExercises = [
         ...(INITIAL_STATE.availableExercises || []),
         ...(parsed.availableExercises || []),
-      ].reduce((acc, exercise) => {
+      ].map(normalizeExerciseDefinition).reduce((acc, exercise) => {
         const key = exercise.name.toLowerCase();
         if (!acc.some(existing => existing.name.toLowerCase() === key)) {
           acc.push(exercise);
@@ -34,7 +48,8 @@ const App: React.FC = () => {
         ...parsed,
         availableExercises: mergedAvailableExercises,
         hydrationGoals: parsed.hydrationGoals || { [INITIAL_STATE.todayStr]: INITIAL_STATE.dailyHydrationGoal },
-        trainingProfile: parsed.trainingProfile || DEFAULT_TRAINING_PROFILE
+        trainingProfile: parsed.trainingProfile || DEFAULT_TRAINING_PROFILE,
+        programSettings: parsed.programSettings || DEFAULT_PROGRAM_SETTINGS
       };
     }
     return INITIAL_STATE;
@@ -190,21 +205,18 @@ const App: React.FC = () => {
   const startNewWorkout = (name: string, blocks?: WorkoutBlock[], plannedExercises: ExerciseDefinition[] = []) => {
     const toExercise = (definition: ExerciseDefinition): Exercise => {
       const isTimed = ['Cardio', 'Active Recovery'].includes(definition.category);
-      const recommendedSets = definition.recommendedSets && definition.recommendedSets.length > 0
-        ? definition.recommendedSets
-        : (isTimed
-          ? [{ durationMinutes: 10 }]
-          : [{ reps: 10, weight: 0 }, { reps: 10, weight: 0 }, { reps: 10, weight: 0 }]);
+      const setCount = Math.max(1, definition.recommendedSets || 3);
+      const [repMin, repMax] = definition.defaultRepRange || [8, 12];
 
       return {
         id: Math.random().toString(36).substr(2, 9),
         name: definition.name,
         category: definition.category,
         equipment: (definition.equipment || (isTimed ? 'bodyweight' : 'barbell')) as EquipmentType,
-        sets: recommendedSets.map(set => ({
-          reps: isTimed ? undefined : set.reps,
-          weight: isTimed ? undefined : set.weight,
-          durationMinutes: isTimed ? (set.durationMinutes ?? 0) : set.durationMinutes,
+        sets: Array.from({ length: setCount }).map(() => ({
+          reps: isTimed ? undefined : repMax,
+          weight: isTimed ? undefined : 0,
+          durationMinutes: isTimed ? 10 : undefined,
           isCompleted: false,
         })),
       };
@@ -249,7 +261,7 @@ const App: React.FC = () => {
   const handleNewExerciseCreated = (ex: ExerciseDefinition) => {
     setState(prev => ({
       ...prev,
-      availableExercises: [...prev.availableExercises, ex]
+      availableExercises: [...prev.availableExercises, normalizeExerciseDefinition(ex)]
     }));
   };
 
@@ -267,6 +279,7 @@ const App: React.FC = () => {
             onUpdate={updateWorkout} 
             onStart={startNewWorkout}
             trainingProfile={processedState.trainingProfile}
+            programSettings={processedState.programSettings}
             availableExercises={processedState.availableExercises}
             onNewExerciseCreated={handleNewExerciseCreated}
             weeklySplit={processedState.weeklySplit}
@@ -296,6 +309,7 @@ const App: React.FC = () => {
             onAddGoal={addGoal}
             onDeleteGoal={deleteGoal}
             onUpdateTrainingProfile={updateTrainingProfile}
+            onUpdateProgramSettings={(settings) => setState(prev => ({ ...prev, programSettings: { ...prev.programSettings, ...settings } }))}
           />
         );
       default:

@@ -1,4 +1,3 @@
-
 export type Mood = 'calm' | 'energized' | 'tired' | 'anxious' | 'neutral' | 'happy';
 
 export type EquipmentType = 'bodyweight' | 'dumbbell' | 'barbell' | 'cable' | 'kettlebell' | 'machine';
@@ -8,6 +7,50 @@ export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
 export type SplitPreference = 'auto' | 'full_body' | 'upper_lower' | 'ppl';
 
 export type WorkoutBlockType = 'warmup' | 'skill_power' | 'compound' | 'accessory' | 'cooldown';
+
+export type MovementPattern =
+  | 'squat'
+  | 'hinge'
+  | 'lunge'
+  | 'horizontal_push'
+  | 'vertical_push'
+  | 'horizontal_pull'
+  | 'vertical_pull'
+  | 'glute_bridge'
+  | 'isolation'
+  | 'carry'
+  | 'core';
+
+export type PrimaryMuscle =
+  | 'glutes'
+  | 'quads'
+  | 'hamstrings'
+  | 'calves'
+  | 'chest'
+  | 'back'
+  | 'shoulders'
+  | 'biceps'
+  | 'triceps'
+  | 'core';
+
+export interface ProgramSettings {
+  goal: 'hypertrophy' | 'strength';
+  daysPerWeek: 3 | 4 | 5 | 6;
+  emphasis: 'balanced' | 'glutes_legs_3x';
+  sessionLengthMin: number; // 45-90
+}
+
+export interface ProgramDayTemplate {
+  name: string;
+  focusMuscles: PrimaryMuscle[];
+  movementPriority: MovementPattern[];
+}
+
+export interface ExerciseProgress {
+  lastWeight: number;
+  lastReps: number[];
+  weeksStalled: number;
+}
 
 export interface WorkoutBlock {
   type: WorkoutBlockType;
@@ -36,8 +79,14 @@ export interface SetLog {
 export interface ExerciseDefinition {
   name: string;
   category: string;
-  equipment?: EquipmentType;
-  recommendedSets?: { reps?: number; weight?: number; durationMinutes?: number }[];
+  equipment: EquipmentType;
+  recommendedSets: number;
+  primaryMuscles: PrimaryMuscle[];
+  movementPattern: MovementPattern;
+  isCompound: boolean;
+  defaultRepRange: [number, number];
+  defaultRestSec: number;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
 }
 
 export interface Exercise extends ExerciseDefinition {
@@ -49,6 +98,7 @@ export interface Exercise extends ExerciseDefinition {
     weight?: number;
     durationMinutes?: number;
   }[];
+  progression?: ExerciseProgress;
 }
 
 export interface Workout {
@@ -127,4 +177,5 @@ export interface AppState {
   hydrationGoals: Record<string, number>;
   todayStr: string;
   trainingProfile: TrainingProfile;
+  programSettings: ProgramSettings;
 }
