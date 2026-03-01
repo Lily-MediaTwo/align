@@ -6,24 +6,50 @@ import WorkoutTracker from './components/WorkoutTracker';
 import HydrationPacer from './components/HydrationPacer';
 import MoodJournal from './components/MoodJournal';
 import AlignmentCenter from './components/AlignmentCenter';
-import { AppState, MoodEntry, Workout, HydrationLog, ExerciseDefinition, SplitDay, CycleConfig, Goal } from './types';
-import { INITIAL_STATE } from './constants';
+import { AppState, MoodEntry, Workout, HydrationLog, ExerciseDefinition, SplitDay, CycleConfig, Goal, WorkoutBlock, TrainingProfile, Exercise, EquipmentType } from './types';
+import { DEFAULT_PROGRAM_SETTINGS, DEFAULT_TRAINING_PROFILE, INITIAL_STATE } from './constants';
+import { getDateDaysAgo, getTodayString, isOnOrAfterDate, isSameLocalDay } from './utils/dateUtils';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('home');
-  const [dayTick, setDayTick] = useState(() => {
-    const now = new Date();
-    const offset = now.getTimezoneOffset();
-    return new Date(now.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
+  const normalizeExerciseDefinition = (exercise: any): ExerciseDefinition => ({
+    name: exercise.name,
+    category: exercise.category || 'Core',
+    equipment: exercise.equipment || 'bodyweight',
+    recommendedSets: typeof exercise.recommendedSets === 'number'
+      ? exercise.recommendedSets
+      : Array.isArray(exercise.recommendedSets) ? exercise.recommendedSets.length || 3 : 3,
+    primaryMuscles: exercise.primaryMuscles || ['core'],
+    movementPattern: exercise.movementPattern || 'isolation',
+    isCompound: typeof exercise.isCompound === 'boolean' ? exercise.isCompound : false,
+    defaultRepRange: exercise.defaultRepRange || [8, 12],
+    defaultRestSec: exercise.defaultRestSec || 60,
+    difficulty: exercise.difficulty || 'beginner',
   });
+  const [activeTab, setActiveTab] = useState('home');
+  const [dayTick, setDayTick] = useState(() => getTodayString());
   const [state, setState] = useState<AppState>(() => {
     const saved = localStorage.getItem('align_state');
     if (saved) {
       const parsed = JSON.parse(saved);
+
+      const mergedAvailableExercises = [
+        ...(INITIAL_STATE.availableExercises || []),
+        ...(parsed.availableExercises || []),
+      ].map(normalizeExerciseDefinition).reduce((acc, exercise) => {
+        const key = exercise.name.toLowerCase();
+        if (!acc.some(existing => existing.name.toLowerCase() === key)) {
+          acc.push(exercise);
+        }
+        return acc;
+      }, [] as typeof INITIAL_STATE.availableExercises);
+
       return {
         ...INITIAL_STATE,
         ...parsed,
-        hydrationGoals: parsed.hydrationGoals || { [INITIAL_STATE.todayStr]: INITIAL_STATE.dailyHydrationGoal }
+        availableExercises: mergedAvailableExercises,
+        hydrationGoals: parsed.hydrationGoals || { [INITIAL_STATE.todayStr]: INITIAL_STATE.dailyHydrationGoal },
+        trainingProfile: parsed.trainingProfile || DEFAULT_TRAINING_PROFILE,
+        programSettings: parsed.programSettings || DEFAULT_PROGRAM_SETTINGS
       };
     }
     return INITIAL_STATE;
@@ -36,9 +62,7 @@ const App: React.FC = () => {
   // Refresh todayStr every minute to handle day changes
   useEffect(() => {
     const interval = setInterval(() => {
-      const now = new Date();
-      const offset = now.getTimezoneOffset();
-      const current = new Date(now.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
+      const current = getTodayString();
       if (current !== dayTick) {
         setDayTick(current);
       }
@@ -49,8 +73,9 @@ const App: React.FC = () => {
   // Auto-complete workouts from previous days
   useEffect(() => {
     let changed = false;
+    const today = new Date();
     const updatedWorkouts = state.workouts.map(w => {
-      if (!w.completed && new Date(w.date).toLocaleDateString() !== new Date().toLocaleDateString()) {
+      if (!w.completed && !isSameLocalDay(w.date, today)) {
         changed = true;
         return { ...w, completed: true };
       }
@@ -65,17 +90,16 @@ const App: React.FC = () => {
   // Derived state for goals based on behavior
   const processedState = useMemo(() => {
     const newState = { ...state, todayStr: dayTick };
-    const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneWeekAgo = getDateDaysAgo(7);
     
     newState.goals = state.goals.map(goal => {
       let current = goal.current;
       
       if (goal.autoTrack === 'workouts' && goal.type === 'weekly') {
-        current = state.workouts.filter(w => w.completed && new Date(w.date) >= oneWeekAgo).length;
+        current = state.workouts.filter(w => w.completed && isOnOrAfterDate(w.date, oneWeekAgo)).length;
       } else if (goal.autoTrack === 'hydration' && goal.type === 'weekly') {
         // Simple weekly sum for hydration
-        current = state.hydration.filter(h => new Date(h.date) >= oneWeekAgo).reduce((acc, h) => acc + h.amountOz, 0);
+        current = state.hydration.filter(h => isOnOrAfterDate(h.date, oneWeekAgo)).reduce((acc, h) => acc + h.amountOz, 0);
       }
 
       return {
@@ -89,29 +113,45 @@ const App: React.FC = () => {
   }, [state, dayTick]);
 
   const addHydration = (oz: number) => {
+    if (!Number.isFinite(oz) || oz <= 0) return;
+
+    const normalizedAmount = Math.round(oz);
     const now = new Date();
-    const offset = now.getTimezoneOffset();
-    const localDateStr = new Date(now.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
-    
-    const newLog: HydrationLog = {
-      id: Math.random().toString(36).substr(2, 9),
-      date: localDateStr,
-      amountOz: oz,
-      timestamp: now.toISOString()
-    };
-    setState(prev => ({
-      ...prev,
-      hydration: [...prev.hydration, newLog]
-    }));
+    const localDateStr = getTodayString();
+
+    setState(prev => {
+      const latestLog = prev.hydration[prev.hydration.length - 1];
+      if (latestLog) {
+        const secondsSinceLast = (now.getTime() - new Date(latestLog.timestamp).getTime()) / 1000;
+        const isLikelyDuplicate = secondsSinceLast <= 2 && latestLog.amountOz === normalizedAmount && latestLog.date === localDateStr;
+        if (isLikelyDuplicate) {
+          return prev;
+        }
+      }
+
+      const newLog: HydrationLog = {
+        id: Math.random().toString(36).substr(2, 9),
+        date: localDateStr,
+        amountOz: normalizedAmount,
+        timestamp: now.toISOString()
+      };
+
+      return {
+        ...prev,
+        hydration: [...prev.hydration, newLog]
+      };
+    });
   };
 
   const updateHydrationGoal = (goal: number) => {
+    const normalizedGoal = Math.max(1, Math.round(goal));
+
     setState(prev => ({
       ...prev,
-      dailyHydrationGoal: goal,
+      dailyHydrationGoal: normalizedGoal,
       hydrationGoals: {
         ...prev.hydrationGoals,
-        [dayTick]: goal
+        [dayTick]: normalizedGoal
       }
     }));
   };
@@ -162,13 +202,33 @@ const App: React.FC = () => {
     });
   };
 
-  const startNewWorkout = (name: string) => {
+  const startNewWorkout = (name: string, blocks?: WorkoutBlock[], plannedExercises: ExerciseDefinition[] = []) => {
+    const toExercise = (definition: ExerciseDefinition): Exercise => {
+      const isTimed = ['Cardio', 'Active Recovery'].includes(definition.category);
+      const setCount = Math.max(1, definition.recommendedSets || 3);
+      const [repMin, repMax] = definition.defaultRepRange || [8, 12];
+
+      return {
+        id: Math.random().toString(36).substr(2, 9),
+        name: definition.name,
+        category: definition.category,
+        equipment: (definition.equipment || (isTimed ? 'bodyweight' : 'barbell')) as EquipmentType,
+        sets: Array.from({ length: setCount }).map(() => ({
+          reps: isTimed ? undefined : repMax,
+          weight: isTimed ? undefined : 0,
+          durationMinutes: isTimed ? 10 : undefined,
+          isCompleted: false,
+        })),
+      };
+    };
+
     const newWorkout: Workout = {
       id: Math.random().toString(36).substr(2, 9),
       name: name,
       date: new Date().toISOString(),
-      exercises: [],
-      completed: false
+      exercises: plannedExercises.map(toExercise),
+      completed: false,
+      blocks
     };
     setState(prev => ({
       ...prev,
@@ -191,10 +251,17 @@ const App: React.FC = () => {
     }));
   };
 
+  const updateTrainingProfile = (profile: Partial<TrainingProfile>) => {
+    setState(prev => ({
+      ...prev,
+      trainingProfile: { ...prev.trainingProfile, ...profile }
+    }));
+  };
+
   const handleNewExerciseCreated = (ex: ExerciseDefinition) => {
     setState(prev => ({
       ...prev,
-      availableExercises: [...prev.availableExercises, ex]
+      availableExercises: [...prev.availableExercises, normalizeExerciseDefinition(ex)]
     }));
   };
 
@@ -211,6 +278,8 @@ const App: React.FC = () => {
             completedWorkouts={completedWorkouts}
             onUpdate={updateWorkout} 
             onStart={startNewWorkout}
+            trainingProfile={processedState.trainingProfile}
+            programSettings={processedState.programSettings}
             availableExercises={processedState.availableExercises}
             onNewExerciseCreated={handleNewExerciseCreated}
             weeklySplit={processedState.weeklySplit}
@@ -239,6 +308,8 @@ const App: React.FC = () => {
             onUpdateCycle={updateCycleConfig}
             onAddGoal={addGoal}
             onDeleteGoal={deleteGoal}
+            onUpdateTrainingProfile={updateTrainingProfile}
+            onUpdateProgramSettings={(settings) => setState(prev => ({ ...prev, programSettings: { ...prev.programSettings, ...settings } }))}
           />
         );
       default:
