@@ -21,14 +21,14 @@ const badgeLabel: Record<WeekDay['type'], string> = {
 
 const WeeklyStructurePreview: React.FC<WeeklyStructurePreviewProps> = ({ week, todayIndex, completedDayIndexes = [] }) => {
   return (
-    <div className="grid grid-flow-col auto-cols-[150px] md:grid-flow-row md:grid-cols-7 gap-3 overflow-x-auto no-scrollbar pb-2">
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
       {week.map((day) => {
         const isToday = todayIndex === day.dayIndex;
         const completed = completedDayIndexes.includes(day.dayIndex);
         return (
           <div
             key={day.dayIndex}
-            className={`rounded-2xl border p-3 bg-white shadow-sm transition-all hover:shadow-md ${isToday ? 'ring-2 ring-[#7c9082]/30 border-[#7c9082]/30' : 'border-stone-100'}`}
+            className={`rounded-2xl border p-2.5 bg-white shadow-sm transition-all hover:shadow-md min-h-[112px] ${isToday ? 'ring-2 ring-[#7c9082]/30 border-[#7c9082]/30' : 'border-stone-100'}`}
           >
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">{day.label.slice(0, 3)}</p>
@@ -37,7 +37,7 @@ const WeeklyStructurePreview: React.FC<WeeklyStructurePreviewProps> = ({ week, t
             <span className={`inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full border ${badgeClasses[day.type]}`}>
               {badgeLabel[day.type]}
             </span>
-            <p className={`mt-2 text-[11px] ${day.type === 'rest' ? 'text-stone-400' : 'text-stone-600'} leading-snug`}>
+            <p className={`mt-2 text-[11px] ${day.type === 'rest' ? 'text-stone-400' : 'text-stone-600'} leading-snug line-clamp-2`}>
               {day.type === 'rest' ? 'Rest & Recovery' : day.focus || 'Session'}
             </p>
           </div>

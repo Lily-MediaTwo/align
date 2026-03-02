@@ -787,7 +787,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
               </div>
               <button
                 disabled={todayWeekDay?.type === 'rest'}
-                onClick={() => onStart(todayStructure?.label || 'Workout Session', sessionBlocks, plannedExercises)}
+                onClick={() => onStart(todayStructure?.label || 'Workout Session', sessionBlocks, plannedExercises.length ? plannedExercises : recommendations.slice(0, 4))}
                 className="px-8 py-3 bg-[#7c9082] text-white rounded-full font-semibold text-sm shadow-xl shadow-[#7c9082]/20 active:scale-95 transition-all disabled:opacity-40"
               >
                 Start Workout
@@ -993,6 +993,11 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
             )}
 
             <div className="space-y-5">
+              {groupedExercises.length === 0 && (
+                <div className="bg-white border border-stone-100 rounded-2xl p-5 text-sm text-stone-500">
+                  No exercises are loaded for this session yet. Use + to add movements or restart with planned exercises.
+                </div>
+              )}
               {groupedExercises.map(({ blockType, title, exercises }) => {
                 const isCollapsed = collapsedBlocks[blockType] || false;
                 return (
