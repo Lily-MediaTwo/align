@@ -25,6 +25,21 @@ const App: React.FC = () => {
     defaultRestSec: exercise.defaultRestSec || 60,
     difficulty: exercise.difficulty || 'beginner',
   });
+
+  const normalizeWorkout = (workout: Workout): Workout => ({
+    ...workout,
+    exercises: (workout.exercises || []).map((exercise: any) => {
+      const definition = normalizeExerciseDefinition(exercise.definition || exercise);
+      return {
+        ...exercise,
+        name: exercise.name || definition.name,
+        category: exercise.category || definition.category,
+        equipment: exercise.equipment || definition.equipment,
+        definition,
+      };
+    }),
+  });
+
   const [activeTab, setActiveTab] = useState('home');
   const [dayTick, setDayTick] = useState(() => getTodayString());
   const [state, setState] = useState<AppState>(() => {
@@ -47,6 +62,7 @@ const App: React.FC = () => {
         ...INITIAL_STATE,
         ...parsed,
         availableExercises: mergedAvailableExercises,
+        workouts: (parsed.workouts || []).map(normalizeWorkout),
         hydrationGoals: parsed.hydrationGoals || { [INITIAL_STATE.todayStr]: INITIAL_STATE.dailyHydrationGoal },
         trainingProgram: parsed.trainingProgram || {
           goal: parsed.programSettings?.goal || parsed.trainingProfile?.goal || DEFAULT_TRAINING_PROGRAM.goal,
@@ -215,6 +231,7 @@ const App: React.FC = () => {
 
       return {
         id: Math.random().toString(36).substr(2, 9),
+        definition,
         name: definition.name,
         category: definition.category,
         equipment: (definition.equipment || (isTimed ? 'bodyweight' : 'barbell')) as EquipmentType,
@@ -248,12 +265,6 @@ const App: React.FC = () => {
     }));
   };
 
-  const updateTrainingProfile = (profile: Partial<TrainingProfile>) => {
-    setState(prev => ({
-      ...prev,
-      trainingProfile: { ...prev.trainingProfile, ...profile }
-    }));
-  };
 
   const handleNewExerciseCreated = (ex: ExerciseDefinition) => {
     setState(prev => ({
