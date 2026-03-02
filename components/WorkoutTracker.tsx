@@ -7,6 +7,7 @@ import { getFullWeekStructure } from '../lib/weekGenerator';
 import { getWorkoutSections, inferSectionType } from '../lib/workoutStructure';
 import { buildExerciseProgress, estimateWeeklyGluteSets, getProgressionSuggestion, getSessionExerciseCap } from '../lib/progression';
 import { formatLocalDate, getDateDaysAgo, isOnOrAfterDate, parseDayString } from '../utils/dateUtils';
+import { getExerciseCategory, getExerciseDefinition, getExerciseName } from '../lib/exercise';
 
 interface WorkoutTrackerProps {
   activeWorkout?: Workout;
@@ -22,6 +23,9 @@ interface WorkoutTrackerProps {
 
 
 class WorkoutErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  declare props: { children: React.ReactNode };
+  declare state: { hasError: boolean };
+
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false };
@@ -367,7 +371,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const addSet = (exerciseId: string) => {
     updateExerciseById(exerciseId, (exercise) => {
       const lastSet = exercise.sets[exercise.sets.length - 1];
-      const isTimed = ['Cardio', 'Active Recovery'].includes(exercise.category);
+      const isTimed = ['Cardio', 'Active Recovery'].includes(getExerciseCategory(exercise));
 
       return {
         ...exercise,
@@ -445,13 +449,16 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       maxPrevWeight = Math.max(...prevStats.map(s => s.weight || 0));
     }
 
+    const resolvedDefinition = definition || { name: name.trim(), category: finalCategory, movementPattern: newExercise.movementPattern, primaryMuscles: [newExercise.primaryMuscle], equipment: finalEquipment, recommendedSets: isTimed ? 1 : 3, isCompound: false, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' };
+
     const exercise: Exercise = {
       id: Math.random().toString(36).substr(2, 9),
+      definition: resolvedDefinition,
       name: name.trim(),
       category: finalCategory,
       equipment: finalEquipment,
       previousStats: prevStats,
-      sectionType: inferSectionType(definition || { name: name.trim(), category: finalCategory, movementPattern: newExercise.movementPattern, primaryMuscles: [newExercise.primaryMuscle], equipment: finalEquipment, recommendedSets: isTimed ? 1 : 3, isCompound: false, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' }, todayWeekDay?.type === 'conditioning' ? 'conditioning' : 'lift'),
+      sectionType: inferSectionType(resolvedDefinition, todayWeekDay?.type === 'conditioning' ? 'conditioning' : 'lift'),
       sets: isTimed
         ? (prevStats
             ? prevStats.map(s => ({ durationMinutes: s.durationMinutes, isCompleted: false }))
@@ -503,7 +510,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 10);
 
-    const frequencyByName = recentCompleted.reduce<Record<string, number>>((acc, workout) => {
+    const frequencyByName = recentCompleted.reduce((acc: Record<string, number>, workout) => {
       workout.exercises.forEach(ex => {
         const key = ex.name.toLowerCase();
         acc[key] = (acc[key] || 0) + 1;
@@ -511,7 +518,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       return acc;
     }, {});
 
-    const latestIndexByName = recentCompleted.reduce<Record<string, number>>((acc, workout, index) => {
+    const latestIndexByName = recentCompleted.reduce((acc: Record<string, number>, workout, index) => {
       workout.exercises.forEach(ex => {
         const key = ex.name.toLowerCase();
         if (acc[key] === undefined) acc[key] = index;
@@ -563,7 +570,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const workoutBlocksForView = useMemo(() => activeWorkout?.blocks?.length ? activeWorkout.blocks : sessionBlocks, [activeWorkout?.blocks, sessionBlocks]);
 
   const blockTitleByType = useMemo(() => {
-    return workoutBlocksForView.reduce<Record<WorkoutBlockType, string>>((acc, block) => {
+    return workoutBlocksForView.reduce((acc: Record<WorkoutBlockType, string>, block) => {
       acc[block.type] = block.title;
       return acc;
     }, {
@@ -594,7 +601,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     const override = exercisePhaseOverrides[exercise.id] as WorkoutSectionType | undefined;
     if (override) return override;
     if (exercise.sectionType) return exercise.sectionType;
-    return inferSectionType(exercise, todayWeekDay?.type === 'conditioning' ? 'conditioning' : 'lift');
+    return inferSectionType(getExerciseDefinition(exercise), todayWeekDay?.type === 'conditioning' ? 'conditioning' : 'lift');
   };
 
   const phaseFilters = useMemo(() => {
@@ -697,8 +704,9 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
     const sampleExercise = activeWorkout.exercises[0];
     if (sampleExercise) {
-      const progress = buildExerciseProgress(sampleExercise.name, allHistory);
-      const suggestion = getProgressionSuggestion(sampleExercise, sampleExercise.sets, progress);
+      const sampleDefinition = getExerciseDefinition(sampleExercise);
+      const progress = buildExerciseProgress(getExerciseName(sampleExercise), allHistory);
+      const suggestion = getProgressionSuggestion(sampleDefinition, sampleExercise.sets, progress);
       if (suggestion.message) prompts.push(suggestion.message);
       if (suggestion.deload) prompts.push('Deload recommended next week.');
     }
@@ -1077,7 +1085,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                       <div className="mb-2"><button onClick={() => setShowConditioning(v => !v)} className="text-xs font-bold text-[#7c9082]">{showConditioning ? 'Hide Conditioning' : 'Add Conditioning'}</button></div>
                     )}
                     {!isCollapsed && exercises.map((exercise) => {
-                      const isTimed = ['Cardio', 'Active Recovery'].includes(exercise.category);
+                      const isTimed = ['Cardio', 'Active Recovery'].includes(getExerciseCategory(exercise));
                       const currentPhase = detectExercisePhase(exercise);
 
                       return (

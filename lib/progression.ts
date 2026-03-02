@@ -1,4 +1,5 @@
 import { Exercise, ExerciseDefinition, ExerciseProgress, SetLog, Workout } from '../types';
+import { getExerciseDefinition, getExerciseName } from './exercise';
 
 const roundToIncrement = (value: number, increment: number) => Math.round(value / increment) * increment;
 
@@ -8,7 +9,7 @@ export const buildExerciseProgress = (exerciseName: string, workouts: Workout[])
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   for (const workout of history) {
-    const ex = workout.exercises.find(e => e.name.toLowerCase() === exerciseName.toLowerCase());
+    const ex = workout.exercises.find(e => getExerciseName(e).toLowerCase() === exerciseName.toLowerCase());
     if (!ex) continue;
     const reps = ex.sets.map(s => s.reps || 0).filter(Boolean);
     const weight = Math.max(...ex.sets.map(s => s.weight || 0), 0);
@@ -68,6 +69,6 @@ export const estimateWeeklyGluteSets = (workouts: Workout[]) => {
   return workouts
     .filter(w => w.completed)
     .flatMap(w => w.exercises)
-    .filter(ex => ex.primaryMuscles?.includes('glutes'))
+    .filter(ex => getExerciseDefinition(ex).primaryMuscles?.includes('glutes'))
     .reduce((sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length, 0);
 };
