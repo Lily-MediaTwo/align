@@ -2,7 +2,14 @@ export type Mood = 'calm' | 'energized' | 'tired' | 'anxious' | 'neutral' | 'hap
 
 export type EquipmentType = 'bodyweight' | 'dumbbell' | 'barbell' | 'cable' | 'kettlebell' | 'machine';
 
-export type WorkoutBlockType = 'warmup' | 'skill_power' | 'compound' | 'accessory' | 'cooldown';
+export type WorkoutBlockType =
+  | 'activation'
+  | 'primary'
+  | 'secondary'
+  | 'accessory'
+  | 'core'
+  | 'conditioning_optional'
+  | 'recovery_note';
 
 export type MovementPattern =
   | 'squat'
@@ -89,10 +96,6 @@ export interface ExerciseProgress {
 export interface WorkoutBlock {
   type: WorkoutBlockType;
   title: string;
-  durationMin: number;
-  targetCategories: string[];
-  recommendedRestSeconds?: number;
-  notes?: string;
 }
 
 export interface SetLog {
