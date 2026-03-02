@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppState, CyclePhase } from '../types';
 import { getAdaptiveNudge } from '../services/geminiService';
-import { formatLocalDate, getDateDaysAgo, parseDayString, isOnOrAfterDate, formatLocalTime } from '../utils/dateUtils';
+import { formatLocalDate, parseDayString, isInSameTrainingWeek, formatLocalTime } from '../utils/dateUtils';
 import { getFullWeekStructure } from '../lib/weekGenerator';
 import WeeklyStructurePreview from './WeeklyStructurePreview';
 
@@ -137,7 +137,7 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-3xl font-light text-stone-700">
-              {state.workouts.filter(w => w.completed && isOnOrAfterDate(w.date, getDateDaysAgo(7))).length}
+              {state.workouts.filter(w => w.completed && isInSameTrainingWeek(w.date, state.todayStr)).length}
             </span>
             <span className="text-xs text-stone-400 font-medium">this week</span>
           </div>
