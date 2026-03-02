@@ -8,7 +8,7 @@ import MoodJournal from './components/MoodJournal';
 import AlignmentCenter from './components/AlignmentCenter';
 import { AppState, MoodEntry, Workout, HydrationLog, ExerciseDefinition, CycleConfig, UserGoal, WorkoutBlock, Exercise, EquipmentType, TrainingProgram } from './types';
 import { DEFAULT_TRAINING_PROGRAM, INITIAL_STATE } from './constants';
-import { getDateDaysAgo, getTodayString, isOnOrAfterDate, isSameLocalDay } from './utils/dateUtils';
+import { getTodayString, isInSameTrainingWeek, isSameLocalDay } from './utils/dateUtils';
 
 const App: React.FC = () => {
   const normalizeExerciseDefinition = (exercise: any): ExerciseDefinition => ({
@@ -111,16 +111,15 @@ const App: React.FC = () => {
   // Derived state for goals based on behavior
   const processedState = useMemo(() => {
     const newState = { ...state, todayStr: dayTick };
-    const oneWeekAgo = getDateDaysAgo(7);
-    
+    const now = new Date();
+
     newState.goals = state.goals.map(goal => {
       let current = goal.current;
       
       if (goal.autoTrack === 'workouts' && goal.type === 'weekly') {
-        current = state.workouts.filter(w => w.completed && isOnOrAfterDate(w.date, oneWeekAgo)).length;
+        current = state.workouts.filter(w => w.completed && isInSameTrainingWeek(w.date, now)).length;
       } else if (goal.autoTrack === 'hydration' && goal.type === 'weekly') {
-        // Simple weekly sum for hydration
-        current = state.hydration.filter(h => isOnOrAfterDate(h.date, oneWeekAgo)).reduce((acc, h) => acc + h.amountOz, 0);
+        current = state.hydration.filter(h => isInSameTrainingWeek(h.date, now)).reduce((acc, h) => acc + h.amountOz, 0);
       }
 
       return {
