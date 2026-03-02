@@ -19,7 +19,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   return (
     <div className="flex flex-col min-h-screen max-w-md mx-auto bg-[#fcfbf7] shadow-2xl relative overflow-hidden ring-1 ring-stone-100">
       {/* Premium Header */}
-      <header className="px-8 pt-10 pb-4 flex justify-between items-center bg-[#fcfbf7]/80 backdrop-blur-sm z-40 sticky top-0">
+      <header className="px-4 sm:px-6 pt-8 pb-3 flex justify-between items-center bg-[#fcfbf7]/80 backdrop-blur-sm z-40 sticky top-0">
         <h1 className="serif text-3xl font-semibold tracking-tighter text-[#4a5d50]">Align</h1>
         <div className="flex items-center gap-3">
           <div className="flex -space-x-2">
@@ -30,22 +30,22 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 px-8 pb-32 overflow-y-auto no-scrollbar scroll-smooth">
+      <main className="flex-1 px-4 sm:px-6 pb-32 overflow-y-auto no-scrollbar scroll-smooth">
         {children}
       </main>
 
       {/* Minimal Bottom Navigation */}
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[340px] bg-stone-900/95 backdrop-blur-lg rounded-[2.5rem] px-8 py-4 flex justify-between items-center z-50 shadow-2xl shadow-stone-900/40">
+      <nav className="fixed bottom-2 left-1/2 -translate-x-1/2 w-[94%] max-w-[360px] bg-stone-900/95 backdrop-blur-lg rounded-[2.5rem] px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex justify-between items-center z-50 shadow-2xl shadow-stone-900/40">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative ${
+            className={`min-h-[44px] min-w-[44px] flex flex-col items-center justify-center gap-1 transition-all duration-300 relative ${
               activeTab === tab.id ? 'text-white scale-110' : 'text-stone-500 hover:text-stone-300'
             }`}
           >
             <span className="text-xl">{tab.icon}</span>
-            <span className={`text-[8px] uppercase font-bold tracking-[0.2em] transition-opacity duration-300 ${activeTab === tab.id ? 'opacity-100' : 'opacity-0'}`}>
+            <span className={`text-[9px] uppercase font-bold tracking-[0.15em] transition-opacity duration-300 ${activeTab === tab.id ? 'opacity-100' : 'opacity-70'}`}>
               {tab.label}
             </span>
             {activeTab === tab.id && (
