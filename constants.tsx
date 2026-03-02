@@ -1,24 +1,16 @@
 
 import React from 'react';
-import { AppState, Goal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType, TrainingProfile, ProgramSettings, MovementPattern, PrimaryMuscle } from './types';
+import { AppState, UserGoal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType, TrainingProgram, MovementPattern, PrimaryMuscle } from './types';
 import { getTodayString } from './utils/dateUtils';
 
 const todayString = getTodayString();
 
-export const DEFAULT_TRAINING_PROFILE: TrainingProfile = {
+export const DEFAULT_TRAINING_PROGRAM: TrainingProgram = {
   goal: 'hypertrophy',
   daysPerWeek: 4,
-  experience: 'intermediate',
-  splitPreference: 'auto',
-  sessionLengthMin: 60,
-};
-
-
-export const DEFAULT_PROGRAM_SETTINGS: ProgramSettings = {
-  goal: 'hypertrophy',
-  daysPerWeek: 5,
   emphasis: 'balanced',
   sessionLengthMin: 60,
+  conditioningPreference: 'none',
 };
 
 const inferPrimaryMuscles = (category: string): PrimaryMuscle[] => {
@@ -280,13 +272,10 @@ export const INITIAL_STATE: AppState = {
     cycleLength: 28
   },
   availableExercises: COMMON_EXERCISES,
-  weeklySplit: SPLIT_TEMPLATES[0].days,
-  selectedTemplateId: 'ppl-6',
   dailyHydrationGoal: 64,
   hydrationGoals: { [todayString]: 64 },
   todayStr: todayString,
-  trainingProfile: DEFAULT_TRAINING_PROFILE,
-  programSettings: DEFAULT_PROGRAM_SETTINGS
+  trainingProgram: DEFAULT_TRAINING_PROGRAM
 };
 
 export const MOOD_CONFIG: Record<string, { emoji: string; color: string }> = {

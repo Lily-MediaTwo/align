@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { Workout, Exercise, ExerciseDefinition, SplitDay, SetLog, EquipmentType, TrainingProfile, WorkoutBlock, WorkoutBlockType, ProgramSettings, ProgramDayTemplate, MovementPattern } from '../types';
+import { Workout, Exercise, ExerciseDefinition, SetLog, EquipmentType, WorkoutBlock, WorkoutBlockType, MovementPattern, TrainingProgram } from '../types';
 import { EQUIPMENT_CONFIG, COMMON_EXERCISES } from '../constants';
-import { generateWeeklyProgram } from '../lib/programGenerator';
+import { generateWeeklyStructure, getTodayStructure } from '../lib/programGenerator';
 import { buildExerciseProgress, estimateWeeklyGluteSets, getProgressionSuggestion, getSessionExerciseCap } from '../lib/progression';
 import { formatLocalDate, getDateDaysAgo, isOnOrAfterDate, parseDayString } from '../utils/dateUtils';
 
@@ -13,11 +13,9 @@ interface WorkoutTrackerProps {
   onStart: (name: string, blocks?: WorkoutBlock[], plannedExercises?: ExerciseDefinition[]) => void;
   availableExercises: ExerciseDefinition[];
   onNewExerciseCreated: (ex: ExerciseDefinition) => void;
-  weeklySplit: SplitDay[];
   allHistory: Workout[];
   todayStr: string;
-  trainingProfile: TrainingProfile;
-  programSettings: ProgramSettings;
+  trainingProgram: TrainingProgram;
 }
 
 const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
@@ -27,11 +25,9 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   onStart,
   availableExercises,
   onNewExerciseCreated,
-  weeklySplit,
   allHistory,
   todayStr,
-  trainingProfile,
-  programSettings
+  trainingProgram
 }) => {
   const [view, setView] = useState<'active' | 'history'>(activeWorkout ? 'active' : 'history');
   const [isAdding, setIsAdding] = useState(false);
@@ -51,11 +47,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
   const localToday = parseDayString(todayStr);
   const dayIndex = (localToday.getDay() + 6) % 7;
-  const splitDay = weeklySplit[dayIndex];
   const todayDisplayStr = formatLocalDate(localToday, { weekday: 'long', month: 'long', day: 'numeric' }, 'en-US');
-  const weeklyProgram = useMemo(() => generateWeeklyProgram(programSettings), [programSettings]);
-  const programDayTemplate: ProgramDayTemplate = weeklyProgram[dayIndex % weeklyProgram.length] || weeklyProgram[0];
-  const currentMovementPriority = programDayTemplate?.movementPriority || [];
+  const weeklyStructure = useMemo(() => generateWeeklyStructure(trainingProgram), [trainingProgram]);
+  const todayStructure = useMemo(() => getTodayStructure(trainingProgram, dayIndex), [trainingProgram, dayIndex]);
+  const currentMovementPriority = todayStructure?.movementPriority || [];
 
   const splitCategoryMap: Record<string, string[]> = {
     push: ['Chest', 'Shoulders', 'Arms'],
@@ -72,32 +67,32 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     rest: ['Active Recovery'],
   };
 
-  const splitLabelLower = splitDay?.label.toLowerCase() || '';
+  const splitLabelLower = todayStructure?.label.toLowerCase() || '';
   const matchedSplitKey = Object.keys(splitCategoryMap).find(k => splitLabelLower.includes(k));
   const splitFocusCategories = matchedSplitKey ? splitCategoryMap[matchedSplitKey] : [];
 
 
   const goalPrescription = useMemo(() => {
-    if (programSettings.goal === 'strength') {
+    if (trainingProgram.goal === 'strength') {
       return { sets: '3-5', reps: '3-6', rest: '2-3 min' };
     }
     return { sets: '3-4', reps: '8-12', rest: '60-90 sec' };
-  }, [programSettings.goal]);
+  }, [trainingProgram.goal]);
 
   const sessionBlocks = useMemo((): WorkoutBlock[] => {
     const base: WorkoutBlock[] = [
       { type: 'warmup', title: 'Warm', durationMin: 8, targetCategories: ['Cardio', 'Active Recovery'], notes: 'Light cardio + dynamic mobility' },
-      { type: 'compound', title: 'Compound', durationMin: 25, targetCategories: ['Chest', 'Back', 'Legs', 'Shoulders'], recommendedRestSeconds: trainingProfile.goal === 'strength' ? 150 : 90 },
-      { type: 'accessory', title: 'Isolate', durationMin: 17, targetCategories: ['Arms', 'Core', 'Shoulders', 'Legs'], recommendedRestSeconds: trainingProfile.goal === 'endurance' ? 60 : 75 },
+      { type: 'compound', title: 'Compound', durationMin: 25, targetCategories: ['Chest', 'Back', 'Legs', 'Shoulders'], recommendedRestSeconds: trainingProgram.goal === 'strength' ? 150 : 90 },
+      { type: 'accessory', title: 'Isolate', durationMin: 17, targetCategories: ['Arms', 'Core', 'Shoulders', 'Legs'], recommendedRestSeconds: 75 },
       { type: 'cooldown', title: 'Cool', durationMin: 8, targetCategories: ['Active Recovery', 'Core'], notes: 'Static stretching + down regulation' },
     ];
 
-    const scaling = trainingProfile.sessionLengthMin / 60;
+    const scaling = trainingProgram.sessionLengthMin / 60;
     return base.map(block => ({
       ...block,
       durationMin: Math.max(5, Math.round(block.durationMin * scaling)),
     }));
-  }, [trainingProfile.goal, trainingProfile.sessionLengthMin]);
+  }, [trainingProgram.goal, trainingProgram.sessionLengthMin]);
 
   const [selectedBlockType, setSelectedBlockType] = useState<'all' | WorkoutBlockType>('all');
 
@@ -127,18 +122,11 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
 
   const goalExercisePlan = useMemo(() => {
-    if (programSettings.goal === 'strength') {
+    if (trainingProgram.goal === 'strength') {
       return {
         compound: '2-4 exercises',
         isolate: '1-2 exercises',
         finisher: '0 finishers (prefer core/mobility)',
-      };
-    }
-    if (trainingProfile.goal === 'endurance') {
-      return {
-        compound: '2-3 exercises',
-        isolate: '3-4 exercises',
-        finisher: '1-2 finishers',
       };
     }
     return {
@@ -146,7 +134,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       isolate: '3-5 exercises',
       finisher: '1-2 finishers',
     };
-  }, [programSettings.goal]);
+  }, [trainingProgram.goal]);
 
   const plannerPhaseConfig: Record<'compound' | 'isolate' | 'finisher', { categories: string[]; include?: string[]; exclude?: string[]; enforceSplitFocus?: boolean; splitOptionalCategories?: string[] }> = {
     compound: {
@@ -204,7 +192,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   };
 
   const buildProgramDrivenPlan = (): ExerciseDefinition[] => {
-    const cap = getSessionExerciseCap(programSettings.sessionLengthMin);
+    const cap = getSessionExerciseCap(trainingProgram.sessionLengthMin);
     const chosen: ExerciseDefinition[] = [];
 
     currentMovementPriority.forEach((pattern) => {
@@ -212,7 +200,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       if (candidate && chosen.length < cap) chosen.push(candidate);
     });
 
-    if (programSettings.emphasis === 'glutes_legs_3x' && /lower|legs/i.test(programDayTemplate?.name || '')) {
+    if (trainingProgram.emphasis === 'glutes_legs' && /lower|legs/i.test(todayStructure?.label || '')) {
       const gluteCandidates = availableExercises
         .filter(ex => ex.primaryMuscles.includes('glutes'))
         .sort((a, b) => Number(b.isCompound) - Number(a.isCompound));
@@ -244,7 +232,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       ...plannerSelections.finisher,
     ];
     return manual.length ? manual : buildProgramDrivenPlan();
-  }, [plannerSelections, currentMovementPriority, availableExercises, programSettings, programDayTemplate]);
+  }, [plannerSelections, currentMovementPriority, availableExercises, trainingProgram, todayStructure]);
 
   const parseSetValue = (field: keyof SetLog, value: string): number | undefined => {
     if (value.trim() === '') return undefined;
@@ -492,7 +480,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     }
 
     return trimmed.map(item => item.exercise);
-  }, [splitDay, availableExercises, activeWorkout, allHistory, selectedBlockType, currentMovementPriority]);
+  }, [todayStructure, availableExercises, activeWorkout, allHistory, selectedBlockType, currentMovementPriority]);
 
   const workoutBlocksForView = useMemo(() => activeWorkout?.blocks?.length ? activeWorkout.blocks : sessionBlocks, [activeWorkout?.blocks, sessionBlocks]);
 
@@ -640,7 +628,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     const completedLowerSessions = allHistory.filter(w => w.completed && /lower|legs/i.test(w.name)).length;
     if (completedLowerSessions >= 2) prompts.push("You've trained legs twice this week. Next session: recovery focus.");
 
-    if (programSettings.emphasis === 'glutes_legs_3x') {
+    if (trainingProgram.emphasis === 'glutes_legs') {
       prompts.push(`Glute volume this week: ${weeklyGluteSets} sets (target 12–18)`);
     }
 
@@ -653,7 +641,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     }
 
     return prompts.slice(0, 2);
-  }, [activeWorkout, allHistory, programSettings.emphasis, weeklyGluteSets]);
+  }, [activeWorkout, allHistory, trainingProgram.emphasis, weeklyGluteSets]);
 
   const filteredSuggestions = useMemo(() => {
     if (!newExercise.name.trim()) return [];
@@ -720,13 +708,13 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
               <h3 className="serif text-2xl text-stone-800">Workout Planner</h3>
               <p className="text-sm text-stone-400 mt-1">Plan your phases, then start and track your session.</p>
               <p className="text-[11px] text-stone-500 mt-1">Program day: {programDayTemplate?.name}</p>
-              <p className="text-[11px] text-[#7c9082] mt-2 font-semibold">{splitDay.label} focus: {splitFocusCategories.join(' • ') || 'General'}</p>
+              <p className="text-[11px] text-[#7c9082] mt-2 font-semibold">{todayStructure.label} focus: {splitFocusCategories.join(' • ') || 'General'}</p>
             </header>
 
             <div className="bg-white border border-stone-100 rounded-[2rem] p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Goal-aligned structure</p>
-                <span className="text-[9px] font-bold uppercase tracking-widest text-[#7c9082]">{trainingProfile.goal}</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-[#7c9082]">{trainingProgram.goal}</span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -758,7 +746,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                   </div>
                   {plannerSuggestions[phase.key].length === 0 ? (
                     <div className="rounded-xl border border-dashed border-stone-200 bg-stone-50 p-3 text-[11px] text-stone-400">
-                      No {phase.title.toLowerCase()} suggestions match your {splitDay.label.toLowerCase()} focus yet.
+                      No {phase.title.toLowerCase()} suggestions match your {todayStructure.label.toLowerCase()} focus yet.
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -787,7 +775,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 <p className="text-sm text-stone-600 mt-1">{plannedExercises.length} selected across phases</p>
               </div>
               <button
-                onClick={() => onStart(programDayTemplate?.name || `${splitDay?.label || 'Workout'} Session`, sessionBlocks, plannedExercises)}
+                onClick={() => onStart(todayStructure?.label || 'Workout Session', sessionBlocks, plannedExercises)}
                 className="px-8 py-3 bg-[#7c9082] text-white rounded-full font-semibold text-sm shadow-xl shadow-[#7c9082]/20 active:scale-95 transition-all"
               >
                 Start Workout
@@ -801,7 +789,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#d4a373]">{todayDisplayStr}</span>
                   <span className="text-[10px] font-bold text-stone-300">•</span>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#7c9082]">{splitDay.label} Day</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#7c9082]">{todayStructure.label}</span>
                 </div>
                 <h2 className="serif text-2xl text-stone-800">{activeWorkout.name}</h2>
               </div>
@@ -845,7 +833,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
                   <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                    Suggested for {selectedBlockType === 'all' ? splitDay.label : sessionBlocks.find(b => b.type === selectedBlockType)?.title}
+                    Suggested for {selectedBlockType === 'all' ? todayStructure.label : sessionBlocks.find(b => b.type === selectedBlockType)?.title}
                   </h3>
                   {selectedBlockType !== 'all' && (
                     <span className="text-[9px] text-[#7c9082] font-bold uppercase tracking-widest">phase filtered</span>

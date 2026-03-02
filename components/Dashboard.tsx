@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { AppState, CyclePhase } from '../types';
 import { getAdaptiveNudge } from '../services/geminiService';
 import { formatLocalDate, getDateDaysAgo, parseDayString, isOnOrAfterDate, formatLocalTime } from '../utils/dateUtils';
+import { generateWeeklyStructure } from '../lib/programGenerator';
 
 interface DashboardProps {
   state: AppState;
@@ -24,7 +25,10 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   const localToday = parseDayString(state.todayStr);
   const dateStr = formatLocalDate(localToday, { weekday: 'long', month: 'long', day: 'numeric' }, 'en-US');
   const dayIndex = (localToday.getDay() + 6) % 7;
-  const todaySplit = state.weeklySplit[dayIndex];
+  const weeklyStructure = generateWeeklyStructure(state.trainingProgram);
+  const weekDays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const todayKey = weekDays[dayIndex];
+  const todaySplit = weeklyStructure.find(item => item.day === todayKey) || weeklyStructure[0];
 
   // Cycle Phase Calculation
   const getCycleDay = () => {
@@ -89,11 +93,11 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Weekly Rhythm</h3>
         </div>
         <div className="flex justify-between gap-1">
-          {state.weeklySplit.map((item, idx) => {
-            const isToday = idx === dayIndex;
+          {weeklyStructure.map((item) => {
+            const isToday = item.day === todayKey;
             return (
               <div 
-                key={idx} 
+                key={item.day}
                 className={`flex-1 flex flex-col items-center py-4 rounded-2xl border transition-all duration-300 ${
                   isToday 
                     ? 'bg-[#7c9082] border-[#7c9082] text-white shadow-lg' 

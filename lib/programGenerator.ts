@@ -1,73 +1,126 @@
-import { ProgramDayTemplate, ProgramSettings } from '../types';
+import { GeneratedWeek, ProgramDayTemplate, TrainingProgram } from '../types';
 
-export const generateWeeklyProgram = (settings: ProgramSettings): ProgramDayTemplate[] => {
-  const { daysPerWeek, emphasis } = settings;
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  if (emphasis === 'glutes_legs_3x' && daysPerWeek >= 5) {
+const conditioningTemplate = (day: string): GeneratedWeek => ({
+  day,
+  label: 'Conditioning',
+  focusMuscles: ['core', 'calves'],
+  movementPriority: ['carry', 'core', 'isolation'],
+  isConditioning: true,
+});
+
+const toGenerated = (day: string, name: string, focusMuscles: GeneratedWeek['focusMuscles'], movementPriority: GeneratedWeek['movementPriority']): GeneratedWeek => ({
+  day,
+  label: name,
+  focusMuscles,
+  movementPriority,
+});
+
+const baseByDays = (program: TrainingProgram): GeneratedWeek[] => {
+  const { daysPerWeek, emphasis } = program;
+
+  if (daysPerWeek === 3) {
     return [
-      {
-        name: 'Lower A (Quad + Glute)',
-        focusMuscles: ['quads', 'glutes', 'calves'],
-        movementPriority: ['squat', 'glute_bridge', 'lunge', 'isolation', 'core'],
-      },
-      {
-        name: 'Upper A',
-        focusMuscles: ['chest', 'back', 'shoulders', 'triceps', 'biceps'],
-        movementPriority: ['horizontal_push', 'horizontal_pull', 'vertical_push', 'vertical_pull', 'isolation'],
-      },
-      {
-        name: 'Lower B (Hamstring + Glute)',
-        focusMuscles: ['hamstrings', 'glutes', 'core'],
-        movementPriority: ['hinge', 'isolation', 'glute_bridge', 'core', 'carry'],
-      },
-      {
-        name: 'Upper B',
-        focusMuscles: ['back', 'chest', 'shoulders', 'biceps', 'triceps'],
-        movementPriority: ['vertical_pull', 'horizontal_push', 'horizontal_pull', 'vertical_push', 'isolation'],
-      },
-      {
-        name: 'Lower C (Glute Pump + Unilateral + Calves)',
-        focusMuscles: ['glutes', 'quads', 'calves'],
-        movementPriority: ['squat', 'lunge', 'isolation', 'glute_bridge', 'core'],
-      },
-      ...(daysPerWeek === 6
-        ? [{
-            name: 'Recovery / Conditioning',
-            focusMuscles: ['core', 'calves'],
-            movementPriority: ['carry', 'core', 'isolation'],
-          } as ProgramDayTemplate]
-        : []),
+      toGenerated('Mon', 'Full Body A', ['quads', 'glutes', 'chest', 'back', 'core'], ['squat', 'horizontal_push', 'horizontal_pull', 'core']),
+      toGenerated('Wed', 'Full Body B', ['hamstrings', 'glutes', 'shoulders', 'back', 'core'], ['hinge', 'vertical_push', 'vertical_pull', 'core']),
+      toGenerated('Fri', 'Full Body C', ['quads', 'glutes', 'back', 'core'], ['lunge', 'horizontal_pull', 'horizontal_push', 'core']),
     ];
   }
 
-  const balancedTemplates: Record<ProgramSettings['daysPerWeek'], ProgramDayTemplate[]> = {
-    3: [
-      { name: 'Full Body A', focusMuscles: ['quads', 'glutes', 'chest', 'back', 'core'], movementPriority: ['squat', 'horizontal_push', 'horizontal_pull', 'core', 'isolation'] },
-      { name: 'Full Body B', focusMuscles: ['hamstrings', 'glutes', 'shoulders', 'back', 'core'], movementPriority: ['hinge', 'vertical_push', 'vertical_pull', 'lunge', 'core'] },
-      { name: 'Full Body C', focusMuscles: ['quads', 'glutes', 'chest', 'back', 'calves'], movementPriority: ['squat', 'horizontal_push', 'horizontal_pull', 'isolation', 'carry'] },
-    ],
-    4: [
-      { name: 'Upper A', focusMuscles: ['chest', 'back', 'shoulders', 'triceps'], movementPriority: ['horizontal_push', 'horizontal_pull', 'vertical_push', 'vertical_pull', 'isolation'] },
-      { name: 'Lower A', focusMuscles: ['quads', 'glutes', 'calves'], movementPriority: ['squat', 'lunge', 'isolation', 'core'] },
-      { name: 'Upper B', focusMuscles: ['back', 'chest', 'biceps', 'shoulders'], movementPriority: ['vertical_pull', 'horizontal_push', 'horizontal_pull', 'isolation'] },
-      { name: 'Lower B', focusMuscles: ['hamstrings', 'glutes', 'core'], movementPriority: ['hinge', 'glute_bridge', 'isolation', 'core'] },
-    ],
-    5: [
-      { name: 'Lower A', focusMuscles: ['quads', 'glutes'], movementPriority: ['squat', 'lunge', 'isolation', 'core'] },
-      { name: 'Upper A', focusMuscles: ['chest', 'back', 'shoulders'], movementPriority: ['horizontal_push', 'horizontal_pull', 'vertical_push', 'isolation'] },
-      { name: 'Lower B', focusMuscles: ['hamstrings', 'glutes', 'calves'], movementPriority: ['hinge', 'glute_bridge', 'isolation', 'core'] },
-      { name: 'Upper B', focusMuscles: ['back', 'chest', 'arms'], movementPriority: ['vertical_pull', 'horizontal_push', 'isolation'] },
-      { name: 'Full Body Pump', focusMuscles: ['glutes', 'back', 'shoulders', 'core'], movementPriority: ['lunge', 'horizontal_pull', 'vertical_push', 'core'] },
-    ],
-    6: [
-      { name: 'Push', focusMuscles: ['chest', 'shoulders', 'triceps'], movementPriority: ['horizontal_push', 'vertical_push', 'isolation'] },
-      { name: 'Pull', focusMuscles: ['back', 'biceps'], movementPriority: ['horizontal_pull', 'vertical_pull', 'isolation'] },
-      { name: 'Lower', focusMuscles: ['quads', 'glutes', 'calves'], movementPriority: ['squat', 'lunge', 'isolation'] },
-      { name: 'Push', focusMuscles: ['chest', 'shoulders', 'triceps'], movementPriority: ['horizontal_push', 'vertical_push', 'isolation'] },
-      { name: 'Pull', focusMuscles: ['back', 'biceps'], movementPriority: ['horizontal_pull', 'vertical_pull', 'isolation'] },
-      { name: 'Lower', focusMuscles: ['hamstrings', 'glutes', 'core'], movementPriority: ['hinge', 'glute_bridge', 'isolation', 'core'] },
-    ],
-  };
+  if (daysPerWeek === 4) {
+    return [
+      toGenerated('Mon', 'Upper A', ['chest', 'back', 'shoulders', 'triceps'], ['horizontal_push', 'horizontal_pull', 'vertical_push', 'isolation']),
+      toGenerated('Tue', 'Lower A', ['quads', 'glutes', 'calves'], ['squat', 'lunge', 'isolation', 'core']),
+      toGenerated('Thu', 'Upper B', ['back', 'chest', 'biceps', 'shoulders'], ['vertical_pull', 'horizontal_push', 'horizontal_pull', 'isolation']),
+      toGenerated('Fri', 'Lower B', ['hamstrings', 'glutes', 'calves'], ['hinge', 'glute_bridge', 'isolation', 'core']),
+    ];
+  }
 
-  return balancedTemplates[daysPerWeek];
+  if (daysPerWeek === 5 && emphasis === 'glutes_legs') {
+    return [
+      toGenerated('Mon', 'Lower (Glute/Quad)', ['glutes', 'quads', 'calves'], ['squat', 'glute_bridge', 'lunge', 'isolation']),
+      toGenerated('Tue', 'Upper A', ['chest', 'back', 'shoulders', 'triceps'], ['horizontal_push', 'horizontal_pull', 'vertical_push', 'isolation']),
+      toGenerated('Wed', 'Lower (Ham/Glute)', ['hamstrings', 'glutes', 'core'], ['hinge', 'isolation', 'glute_bridge', 'core']),
+      toGenerated('Fri', 'Upper B', ['back', 'chest', 'biceps', 'shoulders'], ['vertical_pull', 'horizontal_push', 'horizontal_pull', 'isolation']),
+      toGenerated('Sat', 'Lower (Pump)', ['glutes', 'quads', 'calves'], ['lunge', 'isolation', 'glute_bridge', 'core']),
+    ];
+  }
+
+  if (daysPerWeek === 6) {
+    return [
+      toGenerated('Mon', 'Push', ['chest', 'shoulders', 'triceps'], ['horizontal_push', 'vertical_push', 'isolation']),
+      toGenerated('Tue', 'Pull', ['back', 'biceps'], ['horizontal_pull', 'vertical_pull', 'isolation']),
+      toGenerated('Wed', 'Legs', ['quads', 'glutes', 'hamstrings'], ['squat', 'hinge', 'lunge', 'isolation']),
+      toGenerated('Thu', 'Push', ['chest', 'shoulders', 'triceps'], ['horizontal_push', 'vertical_push', 'isolation']),
+      toGenerated('Fri', 'Pull', ['back', 'biceps'], ['horizontal_pull', 'vertical_pull', 'isolation']),
+      toGenerated('Sat', 'Legs', ['quads', 'glutes', 'hamstrings'], ['squat', 'hinge', 'lunge', 'isolation']),
+    ];
+  }
+
+  // default 5-day balanced
+  return [
+    toGenerated('Mon', 'Upper A', ['chest', 'back', 'shoulders'], ['horizontal_push', 'horizontal_pull', 'vertical_push']),
+    toGenerated('Tue', 'Lower A', ['quads', 'glutes', 'calves'], ['squat', 'lunge', 'isolation']),
+    toGenerated('Wed', 'Upper B', ['back', 'chest', 'biceps'], ['vertical_pull', 'horizontal_push', 'horizontal_pull']),
+    toGenerated('Fri', 'Lower B', ['hamstrings', 'glutes', 'core'], ['hinge', 'glute_bridge', 'core']),
+    toGenerated('Sat', 'Upper/Conditioning', ['shoulders', 'core'], ['carry', 'core', 'isolation']),
+  ];
 };
+
+const canInsertConditioningBetween = (prev?: GeneratedWeek, next?: GeneratedWeek) => {
+  if (!prev || !next) return true;
+  const prevHeavyLower = /lower|legs/i.test(prev.label) && !prev.isConditioning;
+  const nextHeavyLower = /lower|legs/i.test(next.label) && !next.isConditioning;
+  return !(prevHeavyLower && nextHeavyLower);
+};
+
+export const generateWeeklyStructure = (program: TrainingProgram): GeneratedWeek[] => {
+  const base = baseByDays(program);
+
+  const needed = program.conditioningPreference === '2_days' ? 2 : program.conditioningPreference === '1_day' ? 1 : 0;
+  if (!needed) return base;
+
+  const result = [...base];
+  const candidateSlots = [2, 3, 4, 1, 5]; // mid-week first
+
+  let inserted = 0;
+  for (const slot of candidateSlots) {
+    if (inserted >= needed) break;
+    const day = DAYS[slot];
+    if (result.some(r => r.day === day)) continue;
+
+    // find insertion index by day order
+    const insertionIndex = result.findIndex(r => DAYS.indexOf(r.day) > slot);
+    const idx = insertionIndex === -1 ? result.length : insertionIndex;
+
+    const prev = result[idx - 1];
+    const next = result[idx];
+    if (!canInsertConditioningBetween(prev, next)) continue;
+
+    result.splice(idx, 0, conditioningTemplate(day));
+    inserted += 1;
+  }
+
+  return result.sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day));
+};
+
+export const getTodayStructure = (program: TrainingProgram, todayIndex: number): GeneratedWeek => {
+  const generated = generateWeeklyStructure(program);
+  const day = DAYS[todayIndex];
+  return generated.find(g => g.day === day) || generated[0];
+};
+
+// Backward-compatible export for old callsites while refactoring
+export const generateWeeklyProgram = (settings: any): ProgramDayTemplate[] =>
+  generateWeeklyStructure({
+    goal: settings.goal || 'hypertrophy',
+    daysPerWeek: settings.daysPerWeek || 4,
+    emphasis: settings.emphasis || 'balanced',
+    sessionLengthMin: settings.sessionLengthMin || 60,
+    conditioningPreference: settings.conditioningPreference || 'none',
+  }).map(day => ({
+    name: day.label,
+    focusMuscles: day.focusMuscles,
+    movementPriority: day.movementPriority,
+  }));

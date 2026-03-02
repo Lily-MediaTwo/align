@@ -1,17 +1,15 @@
 
 import React, { useState } from 'react';
-import { AppState, SplitTemplate, SplitDay, CycleConfig, Goal, TrainingProfile, ProgramSettings } from '../types';
-import { SPLIT_TEMPLATES } from '../constants';
+import { AppState, CycleConfig, UserGoal, TrainingProgram } from '../types';
 import { formatLocalDate, parseDayString, toLocalDayString } from '../utils/dateUtils';
+import { generateWeeklyStructure } from '../lib/programGenerator';
 
 interface AlignmentCenterProps {
   state: AppState;
-  onUpdateSplit: (days: SplitDay[], templateId?: string) => void;
   onUpdateCycle: (config: Partial<CycleConfig>) => void;
-  onAddGoal: (goal: Omit<Goal, 'id' | 'progress' | 'current'>) => void;
+  onAddGoal: (goal: Omit<UserGoal, 'id' | 'progress' | 'current'>) => void;
   onDeleteGoal: (id: string) => void;
-  onUpdateTrainingProfile: (profile: Partial<TrainingProfile>) => void;
-  onUpdateProgramSettings: (settings: Partial<ProgramSettings>) => void;
+  onUpdateTrainingProgram: (program: Partial<TrainingProgram>) => void;
 }
 
 const CalendarPicker: React.FC<{ 
@@ -88,31 +86,19 @@ const CalendarPicker: React.FC<{
 
 const AlignmentCenter: React.FC<AlignmentCenterProps> = ({ 
   state, 
-  onUpdateSplit, 
   onUpdateCycle,
   onAddGoal,
   onDeleteGoal,
-  onUpdateTrainingProfile,
-  onUpdateProgramSettings
+  onUpdateTrainingProgram
 }) => {
   const [showGoalForm, setShowGoalForm] = useState(false);
-  const [newGoal, setNewGoal] = useState<Omit<Goal, 'id' | 'progress' | 'current'>>({
+  const [newGoal, setNewGoal] = useState<Omit<UserGoal, 'id' | 'progress' | 'current'>>({
     title: '',
     type: 'weekly',
     target: 1,
     unit: 'workouts',
     autoTrack: 'workouts'
   });
-
-  const handleTemplateSelect = (template: SplitTemplate) => {
-    onUpdateSplit(template.days, template.id);
-  };
-
-  const handleCustomDayLabel = (dayIdx: number, label: string) => {
-    const newSplit = [...state.weeklySplit];
-    newSplit[dayIdx] = { ...newSplit[dayIdx], label };
-    onUpdateSplit(newSplit, 'custom');
-  };
 
   const handleAddGoalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,12 +115,7 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
   };
 
 
-  const splitPreferenceOptions: { value: TrainingProfile['splitPreference']; label: string }[] = [
-    { value: 'auto', label: 'Auto' },
-    { value: 'full_body', label: 'Full Body' },
-    { value: 'upper_lower', label: 'Upper / Lower' },
-    { value: 'ppl', label: 'Push / Pull / Legs' },
-  ];
+  const generatedPreview = generateWeeklyStructure(state.trainingProgram);
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-24">
@@ -276,144 +257,59 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
 
       <section className="space-y-6">
         <div className="px-1">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4a373] mb-1">Training Focus</h3>
-          <p className="text-xs text-stone-400">Set your primary goal and preferred weekly structure.</p>
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4a373] mb-1">Training Program</h3>
+          <p className="text-xs text-stone-400">Unified configuration for goal, frequency, focus and conditioning.</p>
         </div>
-        <div className="bg-white border border-stone-100 rounded-[2.5rem] p-6 shadow-sm space-y-5">
+        <div className="bg-white border border-stone-100 rounded-[2.5rem] p-6 shadow-sm space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Primary Goal</label>
-              <select
-                value={state.trainingProfile.goal}
-                onChange={(e) => onUpdateTrainingProfile({ goal: e.target.value as TrainingProfile['goal'] })}
-                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
-              >
-                <option value="strength">Strength</option>
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Goal</label>
+              <select value={state.trainingProgram.goal} onChange={(e) => onUpdateTrainingProgram({ goal: e.target.value as TrainingProgram['goal'] })} className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none">
                 <option value="hypertrophy">Hypertrophy</option>
-                <option value="endurance">Endurance</option>
+                <option value="strength">Strength</option>
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Experience</label>
-              <select
-                value={state.trainingProfile.experience}
-                onChange={(e) => onUpdateTrainingProfile({ experience: e.target.value as TrainingProfile['experience'] })}
-                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
-              >
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Days per Week</label>
+              <select value={state.trainingProgram.daysPerWeek} onChange={(e) => onUpdateTrainingProgram({ daysPerWeek: Number(e.target.value) as TrainingProgram['daysPerWeek'] })} className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none">
+                <option value={3}>3</option><option value={4}>4</option><option value={5}>5</option><option value={6}>6</option>
               </select>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Days / Week</label>
-              <select
-                value={state.trainingProfile.daysPerWeek}
-                onChange={(e) => onUpdateTrainingProfile({ daysPerWeek: Number(e.target.value) as TrainingProfile['daysPerWeek'] })}
-                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
-              >
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-                <option value={5}>5</option>
-                <option value={6}>6</option>
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Focus</label>
+              <select value={state.trainingProgram.emphasis} onChange={(e) => onUpdateTrainingProgram({ emphasis: e.target.value as TrainingProgram['emphasis'] })} className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none">
+                <option value="balanced">Balanced</option>
+                <option value="glutes_legs">Glutes/Legs</option>
+                <option value="upper_body">Upper Body</option>
+                <option value="push_bias">Push Bias</option>
+                <option value="pull_bias">Pull Bias</option>
               </select>
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Session Length</label>
-              <select
-                value={state.trainingProfile.sessionLengthMin}
-                onChange={(e) => onUpdateTrainingProfile({ sessionLengthMin: Number(e.target.value) as TrainingProfile['sessionLengthMin'] })}
-                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
-              >
-                <option value={45}>45 min</option>
-                <option value={60}>60 min</option>
-                <option value={75}>75 min</option>
+              <select value={state.trainingProgram.sessionLengthMin} onChange={(e) => onUpdateTrainingProgram({ sessionLengthMin: Number(e.target.value) as TrainingProgram['sessionLengthMin'] })} className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none">
+                <option value={45}>45</option><option value={60}>60</option><option value={75}>75</option><option value={90}>90</option>
               </select>
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Split Preference</label>
-            <div className="flex flex-wrap gap-2">
-              {splitPreferenceOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => onUpdateTrainingProfile({ splitPreference: option.value })}
-                  className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all ${
-                    state.trainingProfile.splitPreference === option.value
-                      ? 'bg-[#7c9082] border-[#7c9082] text-white'
-                      : 'bg-stone-50 border-stone-100 text-stone-400'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-
-      <section className="space-y-6">
-        <div className="px-1">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4a373] mb-1">Program Mode</h3>
-          <p className="text-xs text-stone-400">Coach-level weekly structure with progression and emphasis options.</p>
-        </div>
-        <div className="bg-white border border-stone-100 rounded-[2.5rem] p-6 shadow-sm space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Program Goal</label>
-              <select
-                value={state.programSettings.goal}
-                onChange={(e) => onUpdateProgramSettings({ goal: e.target.value as ProgramSettings['goal'] })}
-                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
-              >
-                <option value="hypertrophy">Hypertrophy</option>
-                <option value="strength">Strength</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Emphasis</label>
-              <select
-                value={state.programSettings.emphasis}
-                onChange={(e) => onUpdateProgramSettings({ emphasis: e.target.value as ProgramSettings['emphasis'] })}
-                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
-              >
-                <option value="balanced">Balanced</option>
-                <option value="glutes_legs_3x">Glutes/Legs 3x</option>
-              </select>
-            </div>
+            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Conditioning Days</label>
+            <select value={state.trainingProgram.conditioningPreference} onChange={(e) => onUpdateTrainingProgram({ conditioningPreference: e.target.value as TrainingProgram['conditioningPreference'] })} className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none">
+              <option value="none">None</option>
+              <option value="1_day">1 Day</option>
+              <option value="2_days">2 Days</option>
+            </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Days / Week</label>
-              <select
-                value={state.programSettings.daysPerWeek}
-                onChange={(e) => onUpdateProgramSettings({ daysPerWeek: Number(e.target.value) as ProgramSettings['daysPerWeek'] })}
-                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
-              >
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-                <option value={5}>5</option>
-                <option value={6}>6</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Session Length</label>
-              <input
-                type="number"
-                min={45}
-                max={90}
-                step={5}
-                value={state.programSettings.sessionLengthMin}
-                onChange={(e) => onUpdateProgramSettings({ sessionLengthMin: Math.max(45, Math.min(90, Number(e.target.value) || 60)) })}
-                className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none"
-              />
-            </div>
+          <div className="bg-stone-50 rounded-2xl p-4 space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Your Weekly Structure</p>
+            {generatedPreview.map((day) => (
+              <p key={day.day} className="text-xs text-stone-600"><span className="font-semibold">{day.day}</span> — {day.label}</p>
+            ))}
           </div>
         </div>
       </section>
@@ -453,50 +349,7 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
         </div>
       </section>
 
-      {/* Split Configuration Section */}
-      <section className="space-y-6">
-        <div className="px-1">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4a373] mb-1">Weekly Split Structure</h3>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {SPLIT_TEMPLATES.map((template) => (
-            <button
-              key={template.id}
-              onClick={() => handleTemplateSelect(template)}
-              className={`p-5 rounded-[2rem] text-left border transition-all ${
-                state.selectedTemplateId === template.id
-                  ? 'border-[#7c9082] bg-white shadow-lg ring-1 ring-[#7c9082]/10'
-                  : 'border-stone-100 bg-stone-50/50 hover:bg-stone-50'
-              }`}
-            >
-              <h4 className={`text-xs font-bold mb-1 ${state.selectedTemplateId === template.id ? 'text-[#7c9082]' : 'text-stone-600'}`}>
-                {template.name}
-              </h4>
-              <p className="text-[9px] text-stone-400 leading-tight">
-                {template.description}
-              </p>
-            </button>
-          ))}
-        </div>
-        <div className="bg-white border border-stone-100 rounded-[2rem] p-7 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-stone-500">Edit Specific Days</h4>
-          </div>
-          <div className="space-y-3">
-            {state.weeklySplit.map((day, idx) => (
-              <div key={idx} className="flex items-center gap-4">
-                <div className="w-10 text-[10px] font-bold text-stone-300 uppercase">{day.day}</div>
-                <input 
-                  type="text" 
-                  value={day.label}
-                  onChange={(e) => handleCustomDayLabel(idx, e.target.value)}
-                  className="flex-1 bg-stone-50/50 hover:bg-stone-50 border border-transparent focus:border-stone-100 focus:bg-white rounded-xl px-4 py-3 text-xs font-medium text-stone-700 transition-all outline-none"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+
     </div>
   );
 };

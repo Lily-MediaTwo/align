@@ -6,8 +6,8 @@ import WorkoutTracker from './components/WorkoutTracker';
 import HydrationPacer from './components/HydrationPacer';
 import MoodJournal from './components/MoodJournal';
 import AlignmentCenter from './components/AlignmentCenter';
-import { AppState, MoodEntry, Workout, HydrationLog, ExerciseDefinition, SplitDay, CycleConfig, Goal, WorkoutBlock, TrainingProfile, Exercise, EquipmentType } from './types';
-import { DEFAULT_PROGRAM_SETTINGS, DEFAULT_TRAINING_PROFILE, INITIAL_STATE } from './constants';
+import { AppState, MoodEntry, Workout, HydrationLog, ExerciseDefinition, CycleConfig, UserGoal, WorkoutBlock, Exercise, EquipmentType, TrainingProgram } from './types';
+import { DEFAULT_TRAINING_PROGRAM, INITIAL_STATE } from './constants';
 import { getDateDaysAgo, getTodayString, isOnOrAfterDate, isSameLocalDay } from './utils/dateUtils';
 
 const App: React.FC = () => {
@@ -48,8 +48,13 @@ const App: React.FC = () => {
         ...parsed,
         availableExercises: mergedAvailableExercises,
         hydrationGoals: parsed.hydrationGoals || { [INITIAL_STATE.todayStr]: INITIAL_STATE.dailyHydrationGoal },
-        trainingProfile: parsed.trainingProfile || DEFAULT_TRAINING_PROFILE,
-        programSettings: parsed.programSettings || DEFAULT_PROGRAM_SETTINGS
+        trainingProgram: parsed.trainingProgram || {
+          goal: parsed.programSettings?.goal || parsed.trainingProfile?.goal || DEFAULT_TRAINING_PROGRAM.goal,
+          daysPerWeek: parsed.programSettings?.daysPerWeek || parsed.trainingProfile?.daysPerWeek || DEFAULT_TRAINING_PROGRAM.daysPerWeek,
+          emphasis: parsed.programSettings?.emphasis === 'glutes_legs_3x' ? 'glutes_legs' : (parsed.programSettings?.emphasis || DEFAULT_TRAINING_PROGRAM.emphasis),
+          sessionLengthMin: parsed.programSettings?.sessionLengthMin || parsed.trainingProfile?.sessionLengthMin || DEFAULT_TRAINING_PROGRAM.sessionLengthMin,
+          conditioningPreference: parsed.trainingProgram?.conditioningPreference || 'none',
+        }
       };
     }
     return INITIAL_STATE;
@@ -168,8 +173,8 @@ const App: React.FC = () => {
     }));
   };
 
-  const addGoal = (goal: Omit<Goal, 'id' | 'progress' | 'current'>) => {
-    const newGoal: Goal = {
+  const addGoal = (goal: Omit<UserGoal, 'id' | 'progress' | 'current'>) => {
+    const newGoal: UserGoal = {
       ...goal,
       id: Math.random().toString(36).substr(2, 9),
       progress: 0,
@@ -236,14 +241,6 @@ const App: React.FC = () => {
     }));
   };
 
-  const updateSplit = (days: SplitDay[], templateId?: string) => {
-    setState(prev => ({
-      ...prev,
-      weeklySplit: days,
-      selectedTemplateId: templateId || prev.selectedTemplateId
-    }));
-  };
-
   const updateCycleConfig = (config: Partial<CycleConfig>) => {
     setState(prev => ({
       ...prev,
@@ -278,11 +275,9 @@ const App: React.FC = () => {
             completedWorkouts={completedWorkouts}
             onUpdate={updateWorkout} 
             onStart={startNewWorkout}
-            trainingProfile={processedState.trainingProfile}
-            programSettings={processedState.programSettings}
+            trainingProgram={processedState.trainingProgram}
             availableExercises={processedState.availableExercises}
             onNewExerciseCreated={handleNewExerciseCreated}
-            weeklySplit={processedState.weeklySplit}
             allHistory={processedState.workouts}
             todayStr={dayTick}
           />
@@ -304,12 +299,10 @@ const App: React.FC = () => {
         return (
           <AlignmentCenter 
             state={processedState} 
-            onUpdateSplit={updateSplit} 
             onUpdateCycle={updateCycleConfig}
             onAddGoal={addGoal}
             onDeleteGoal={deleteGoal}
-            onUpdateTrainingProfile={updateTrainingProfile}
-            onUpdateProgramSettings={(settings) => setState(prev => ({ ...prev, programSettings: { ...prev.programSettings, ...settings } }))}
+            onUpdateTrainingProgram={(program: Partial<TrainingProgram>) => setState(prev => ({ ...prev, trainingProgram: { ...prev.trainingProgram, ...program } }))}
           />
         );
       default:

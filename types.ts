@@ -2,10 +2,6 @@ export type Mood = 'calm' | 'energized' | 'tired' | 'anxious' | 'neutral' | 'hap
 
 export type EquipmentType = 'bodyweight' | 'dumbbell' | 'barbell' | 'cable' | 'kettlebell' | 'machine';
 
-export type TrainingGoal = 'strength' | 'hypertrophy' | 'endurance';
-export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
-export type SplitPreference = 'auto' | 'full_body' | 'upper_lower' | 'ppl';
-
 export type WorkoutBlockType = 'warmup' | 'skill_power' | 'compound' | 'accessory' | 'cooldown';
 
 export type MovementPattern =
@@ -33,11 +29,31 @@ export type PrimaryMuscle =
   | 'triceps'
   | 'core';
 
-export interface ProgramSettings {
-  goal: 'hypertrophy' | 'strength';
+export type Goal = 'hypertrophy' | 'strength';
+
+export type Emphasis =
+  | 'balanced'
+  | 'glutes_legs'
+  | 'upper_body'
+  | 'push_bias'
+  | 'pull_bias';
+
+export type ConditioningPreference = 'none' | '1_day' | '2_days';
+
+export interface TrainingProgram {
+  goal: Goal;
   daysPerWeek: 3 | 4 | 5 | 6;
-  emphasis: 'balanced' | 'glutes_legs_3x';
-  sessionLengthMin: number; // 45-90
+  emphasis: Emphasis;
+  sessionLengthMin: 45 | 60 | 75 | 90;
+  conditioningPreference: ConditioningPreference;
+}
+
+export interface GeneratedWeek {
+  day: string;
+  label: string;
+  focusMuscles: PrimaryMuscle[];
+  movementPriority: MovementPattern[];
+  isConditioning?: boolean;
 }
 
 export interface ProgramDayTemplate {
@@ -59,14 +75,6 @@ export interface WorkoutBlock {
   targetCategories: string[];
   recommendedRestSeconds?: number;
   notes?: string;
-}
-
-export interface TrainingProfile {
-  goal: TrainingGoal;
-  daysPerWeek: 3 | 4 | 5 | 6;
-  experience: ExperienceLevel;
-  splitPreference: SplitPreference;
-  sessionLengthMin: 45 | 60 | 75;
 }
 
 export interface SetLog {
@@ -110,11 +118,11 @@ export interface Workout {
   blocks?: WorkoutBlock[];
 }
 
-export interface Goal {
+export interface UserGoal {
   id: string;
   title: string;
   type: 'yearly' | 'quarterly' | 'monthly' | 'weekly';
-  progress: number; // 0-100
+  progress: number;
   target: number;
   current: number;
   unit: string;
@@ -143,12 +151,12 @@ export interface CycleEntry {
   startDate: string;
   phase: CyclePhase;
   symptoms: string[];
-  energyLevel: number; // 1-5
+  energyLevel: number;
 }
 
 export interface SplitDay {
-  day: string; // e.g., "Mon"
-  label: string; // e.g., "Push"
+  day: string;
+  label: string;
 }
 
 export interface SplitTemplate {
@@ -160,22 +168,19 @@ export interface SplitTemplate {
 
 export interface CycleConfig {
   lastStartDate: string;
-  cycleLength: number; // default usually 28
+  cycleLength: number;
 }
 
 export interface AppState {
   workouts: Workout[];
-  goals: Goal[];
+  goals: UserGoal[];
   moods: MoodEntry[];
   hydration: HydrationLog[];
   cycle: CycleEntry[];
   cycleConfig: CycleConfig;
   availableExercises: ExerciseDefinition[];
-  weeklySplit: SplitDay[];
-  selectedTemplateId?: string;
   dailyHydrationGoal: number;
   hydrationGoals: Record<string, number>;
   todayStr: string;
-  trainingProfile: TrainingProfile;
-  programSettings: ProgramSettings;
+  trainingProgram: TrainingProgram;
 }
