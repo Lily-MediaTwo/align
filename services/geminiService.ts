@@ -1,6 +1,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { AppState } from "../types";
+import { parseDayString } from "../utils/dateUtils";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -11,7 +12,7 @@ export const getAdaptiveNudge = async (state: AppState) => {
     const lastMood = state.moods[state.moods.length - 1]?.mood || 'neutral';
     
     // Determine current phase for Gemini context
-    const diff = Math.floor((new Date().getTime() - new Date(state.cycleConfig.lastStartDate).getTime()) / (1000 * 60 * 60 * 24));
+    const diff = Math.floor((new Date().getTime() - parseDayString(state.cycleConfig.lastStartDate).getTime()) / (1000 * 60 * 60 * 24));
     const dayOfCycle = (diff % state.cycleConfig.cycleLength) + 1;
     let phase = 'unknown';
     if (dayOfCycle <= 5) phase = 'menstrual';

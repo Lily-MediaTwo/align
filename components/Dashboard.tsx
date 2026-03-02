@@ -2,6 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import { AppState, CyclePhase } from '../types';
 import { getAdaptiveNudge } from '../services/geminiService';
+import { formatLocalDate, getDateDaysAgo, parseDayString, isOnOrAfterDate, formatLocalTime } from '../utils/dateUtils';
+import { getFullWeekStructure } from '../lib/weekGenerator';
+import WeeklyStructurePreview from './WeeklyStructurePreview';
 
 interface DashboardProps {
   state: AppState;
@@ -20,16 +23,15 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
     fetchData();
   }, [state]);
 
-  const [y, m, d] = state.todayStr.split('-').map(Number);
-  const localToday = new Date(y, m - 1, d);
-  const dateStr = localToday.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const localToday = parseDayString(state.todayStr);
+  const dateStr = formatLocalDate(localToday, { weekday: 'long', month: 'long', day: 'numeric' }, 'en-US');
   const dayIndex = (localToday.getDay() + 6) % 7;
-  const todaySplit = state.weeklySplit[dayIndex];
+  const weeklyStructure = getFullWeekStructure(state.trainingProgram);
+  const todaySplit = weeklyStructure[dayIndex];
 
   // Cycle Phase Calculation
   const getCycleDay = () => {
-    const [cy, cm, cd] = state.cycleConfig.lastStartDate.split('-').map(Number);
-    const startDate = new Date(cy, cm - 1, cd);
+    const startDate = parseDayString(state.cycleConfig.lastStartDate);
     // Set both to midnight to compare full days
     const t = new Date(localToday.getFullYear(), localToday.getMonth(), localToday.getDate());
     const diffTime = Math.abs(t.getTime() - startDate.getTime());
@@ -52,7 +54,7 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   const hydrationGoal = state.dailyHydrationGoal;
 
   const getGreeting = () => {
-    const hour = new Date().getHours();
+    const hour = Number(formatLocalTime(new Date(), { hour: 'numeric', hour12: false }));
     if (hour < 12) return "Good morning";
     if (hour < 17) return "Good afternoon";
     return "Good evening";
@@ -89,28 +91,11 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
         <div className="flex justify-between items-center mb-4 px-1">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Weekly Rhythm</h3>
         </div>
-        <div className="flex justify-between gap-1">
-          {state.weeklySplit.map((item, idx) => {
-            const isToday = idx === dayIndex;
-            return (
-              <div 
-                key={idx} 
-                className={`flex-1 flex flex-col items-center py-4 rounded-2xl border transition-all duration-300 ${
-                  isToday 
-                    ? 'bg-[#7c9082] border-[#7c9082] text-white shadow-lg' 
-                    : 'bg-white border-stone-50 text-stone-300'
-                }`}
-              >
-                <span className={`text-[8px] font-bold uppercase mb-1.5 ${isToday ? 'text-white/70' : 'text-stone-300'}`}>
-                  {item.day[0]}
-                </span>
-                <span className="text-[8px] font-bold text-center leading-[1.1] scale-[0.85] origin-top">
-                  {item.label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        <WeeklyStructurePreview
+          week={weeklyStructure}
+          todayIndex={dayIndex}
+          completedDayIndexes={state.workouts.filter(w => w.completed).map(w => ((new Date(w.date).getDay()+6)%7))}
+        />
       </section>
 
       {/* Adaptive Nudge (Gemini) */}
@@ -152,7 +137,7 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-3xl font-light text-stone-700">
-              {state.workouts.filter(w => w.completed && new Date(w.date) > new Date(Date.now() - 7*24*60*60*1000)).length}
+              {state.workouts.filter(w => w.completed && isOnOrAfterDate(w.date, getDateDaysAgo(7))).length}
             </span>
             <span className="text-xs text-stone-400 font-medium">this week</span>
           </div>
