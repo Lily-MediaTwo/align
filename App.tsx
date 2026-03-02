@@ -248,6 +248,13 @@ const App: React.FC = () => {
     }));
   };
 
+  const updateTrainingProfile = (profile: Partial<TrainingProfile>) => {
+    setState(prev => ({
+      ...prev,
+      trainingProfile: { ...prev.trainingProfile, ...profile }
+    }));
+  };
+
   const handleNewExerciseCreated = (ex: ExerciseDefinition) => {
     setState(prev => ({
       ...prev,
