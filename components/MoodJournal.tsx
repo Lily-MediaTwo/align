@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Mood, MoodEntry } from '../types';
 import { MOOD_CONFIG } from '../constants';
+import { formatLocalDate } from '../utils/dateUtils';
 
 interface MoodJournalProps {
   moods: MoodEntry[];
@@ -96,7 +97,7 @@ const MoodJournal: React.FC<MoodJournalProps> = ({ moods, onAdd }) => {
                     <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 capitalize">{entry.mood}</span>
                   </div>
                   <span className="text-[10px] font-bold text-stone-300">
-                    {new Date(entry.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    {formatLocalDate(entry.date, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
                 {entry.note && (

@@ -1,7 +1,81 @@
-
 export type Mood = 'calm' | 'energized' | 'tired' | 'anxious' | 'neutral' | 'happy';
 
 export type EquipmentType = 'bodyweight' | 'dumbbell' | 'barbell' | 'cable' | 'kettlebell' | 'machine';
+
+export type WorkoutBlockType = 'warmup' | 'skill_power' | 'compound' | 'accessory' | 'cooldown';
+
+export type MovementPattern =
+  | 'squat'
+  | 'hinge'
+  | 'lunge'
+  | 'horizontal_push'
+  | 'vertical_push'
+  | 'horizontal_pull'
+  | 'vertical_pull'
+  | 'glute_bridge'
+  | 'isolation'
+  | 'carry'
+  | 'core';
+
+export type PrimaryMuscle =
+  | 'glutes'
+  | 'quads'
+  | 'hamstrings'
+  | 'calves'
+  | 'chest'
+  | 'back'
+  | 'shoulders'
+  | 'biceps'
+  | 'triceps'
+  | 'core';
+
+export type Goal = 'hypertrophy' | 'strength';
+
+export type Emphasis =
+  | 'balanced'
+  | 'glutes_legs'
+  | 'upper_body'
+  | 'push_bias'
+  | 'pull_bias';
+
+export type ConditioningPreference = 'none' | '1_day' | '2_days';
+
+export interface TrainingProgram {
+  goal: Goal;
+  daysPerWeek: 3 | 4 | 5 | 6;
+  emphasis: Emphasis;
+  sessionLengthMin: 45 | 60 | 75 | 90;
+  conditioningPreference: ConditioningPreference;
+}
+
+export interface GeneratedWeek {
+  day: string;
+  label: string;
+  focusMuscles: PrimaryMuscle[];
+  movementPriority: MovementPattern[];
+  isConditioning?: boolean;
+}
+
+export interface ProgramDayTemplate {
+  name: string;
+  focusMuscles: PrimaryMuscle[];
+  movementPriority: MovementPattern[];
+}
+
+export interface ExerciseProgress {
+  lastWeight: number;
+  lastReps: number[];
+  weeksStalled: number;
+}
+
+export interface WorkoutBlock {
+  type: WorkoutBlockType;
+  title: string;
+  durationMin: number;
+  targetCategories: string[];
+  recommendedRestSeconds?: number;
+  notes?: string;
+}
 
 export interface SetLog {
   reps?: number;
@@ -13,8 +87,14 @@ export interface SetLog {
 export interface ExerciseDefinition {
   name: string;
   category: string;
-  equipment?: EquipmentType;
-  recommendedSets?: { reps?: number; weight?: number; durationMinutes?: number }[];
+  equipment: EquipmentType;
+  recommendedSets: number;
+  primaryMuscles: PrimaryMuscle[];
+  movementPattern: MovementPattern;
+  isCompound: boolean;
+  defaultRepRange: [number, number];
+  defaultRestSec: number;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
 }
 
 export interface Exercise extends ExerciseDefinition {
@@ -26,6 +106,7 @@ export interface Exercise extends ExerciseDefinition {
     weight?: number;
     durationMinutes?: number;
   }[];
+  progression?: ExerciseProgress;
 }
 
 export interface Workout {
@@ -34,13 +115,14 @@ export interface Workout {
   date: string;
   exercises: Exercise[];
   completed: boolean;
+  blocks?: WorkoutBlock[];
 }
 
-export interface Goal {
+export interface UserGoal {
   id: string;
   title: string;
   type: 'yearly' | 'quarterly' | 'monthly' | 'weekly';
-  progress: number; // 0-100
+  progress: number;
   target: number;
   current: number;
   unit: string;
@@ -69,12 +151,12 @@ export interface CycleEntry {
   startDate: string;
   phase: CyclePhase;
   symptoms: string[];
-  energyLevel: number; // 1-5
+  energyLevel: number;
 }
 
 export interface SplitDay {
-  day: string; // e.g., "Mon"
-  label: string; // e.g., "Push"
+  day: string;
+  label: string;
 }
 
 export interface SplitTemplate {
@@ -86,20 +168,19 @@ export interface SplitTemplate {
 
 export interface CycleConfig {
   lastStartDate: string;
-  cycleLength: number; // default usually 28
+  cycleLength: number;
 }
 
 export interface AppState {
   workouts: Workout[];
-  goals: Goal[];
+  goals: UserGoal[];
   moods: MoodEntry[];
   hydration: HydrationLog[];
   cycle: CycleEntry[];
   cycleConfig: CycleConfig;
   availableExercises: ExerciseDefinition[];
-  weeklySplit: SplitDay[];
-  selectedTemplateId?: string;
   dailyHydrationGoal: number;
   hydrationGoals: Record<string, number>;
   todayStr: string;
+  trainingProgram: TrainingProgram;
 }

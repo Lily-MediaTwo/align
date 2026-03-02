@@ -1,14 +1,15 @@
 
 import React, { useState } from 'react';
-import { AppState, SplitTemplate, SplitDay, CycleConfig, Goal } from '../types';
-import { SPLIT_TEMPLATES } from '../constants';
+import { AppState, CycleConfig, UserGoal, TrainingProgram } from '../types';
+import { formatLocalDate, parseDayString, toLocalDayString } from '../utils/dateUtils';
+import { generateWeeklyStructure } from '../lib/programGenerator';
 
 interface AlignmentCenterProps {
   state: AppState;
-  onUpdateSplit: (days: SplitDay[], templateId?: string) => void;
   onUpdateCycle: (config: Partial<CycleConfig>) => void;
-  onAddGoal: (goal: Omit<Goal, 'id' | 'progress' | 'current'>) => void;
+  onAddGoal: (goal: Omit<UserGoal, 'id' | 'progress' | 'current'>) => void;
   onDeleteGoal: (id: string) => void;
+  onUpdateTrainingProgram: (program: Partial<TrainingProgram>) => void;
 }
 
 const CalendarPicker: React.FC<{ 
@@ -17,8 +18,7 @@ const CalendarPicker: React.FC<{
 }> = ({ selectedDate, onChange }) => {
   const [viewDate, setViewDate] = useState(() => {
     if (selectedDate) {
-      const [y, m, d] = selectedDate.split('-').map(Number);
-      return new Date(y, m - 1, d);
+      return parseDayString(selectedDate);
     }
     return new Date();
   });
@@ -42,18 +42,12 @@ const CalendarPicker: React.FC<{
   
   const isSelected = (day: number) => {
     const d = new Date(year, month, day);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dayStr = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${dayStr}` === selectedDate;
+    return toLocalDayString(d) === selectedDate;
   };
 
   const selectDay = (day: number) => {
     const d = new Date(year, month, day);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dayStr = String(d.getDate()).padStart(2, '0');
-    onChange(`${y}-${m}-${dayStr}`);
+    onChange(toLocalDayString(d));
   };
 
   return (
@@ -92,29 +86,19 @@ const CalendarPicker: React.FC<{
 
 const AlignmentCenter: React.FC<AlignmentCenterProps> = ({ 
   state, 
-  onUpdateSplit, 
   onUpdateCycle,
   onAddGoal,
-  onDeleteGoal
+  onDeleteGoal,
+  onUpdateTrainingProgram
 }) => {
   const [showGoalForm, setShowGoalForm] = useState(false);
-  const [newGoal, setNewGoal] = useState<Omit<Goal, 'id' | 'progress' | 'current'>>({
+  const [newGoal, setNewGoal] = useState<Omit<UserGoal, 'id' | 'progress' | 'current'>>({
     title: '',
     type: 'weekly',
     target: 1,
     unit: 'workouts',
     autoTrack: 'workouts'
   });
-
-  const handleTemplateSelect = (template: SplitTemplate) => {
-    onUpdateSplit(template.days, template.id);
-  };
-
-  const handleCustomDayLabel = (dayIdx: number, label: string) => {
-    const newSplit = [...state.weeklySplit];
-    newSplit[dayIdx] = { ...newSplit[dayIdx], label };
-    onUpdateSplit(newSplit, 'custom');
-  };
 
   const handleAddGoalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,6 +113,9 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
       autoTrack: 'workouts'
     });
   };
+
+
+  const generatedPreview = generateWeeklyStructure(state.trainingProgram);
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-24">
@@ -268,6 +255,65 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
         </div>
       </section>
 
+      <section className="space-y-6">
+        <div className="px-1">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4a373] mb-1">Training Program</h3>
+          <p className="text-xs text-stone-400">Unified configuration for goal, frequency, focus and conditioning.</p>
+        </div>
+        <div className="bg-white border border-stone-100 rounded-[2.5rem] p-6 shadow-sm space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Goal</label>
+              <select value={state.trainingProgram.goal} onChange={(e) => onUpdateTrainingProgram({ goal: e.target.value as TrainingProgram['goal'] })} className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none">
+                <option value="hypertrophy">Hypertrophy</option>
+                <option value="strength">Strength</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Days per Week</label>
+              <select value={state.trainingProgram.daysPerWeek} onChange={(e) => onUpdateTrainingProgram({ daysPerWeek: Number(e.target.value) as TrainingProgram['daysPerWeek'] })} className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none">
+                <option value={3}>3</option><option value={4}>4</option><option value={5}>5</option><option value={6}>6</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Focus</label>
+              <select value={state.trainingProgram.emphasis} onChange={(e) => onUpdateTrainingProgram({ emphasis: e.target.value as TrainingProgram['emphasis'] })} className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none">
+                <option value="balanced">Balanced</option>
+                <option value="glutes_legs">Glutes/Legs</option>
+                <option value="upper_body">Upper Body</option>
+                <option value="push_bias">Push Bias</option>
+                <option value="pull_bias">Pull Bias</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Session Length</label>
+              <select value={state.trainingProgram.sessionLengthMin} onChange={(e) => onUpdateTrainingProgram({ sessionLengthMin: Number(e.target.value) as TrainingProgram['sessionLengthMin'] })} className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none">
+                <option value={45}>45</option><option value={60}>60</option><option value={75}>75</option><option value={90}>90</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Conditioning Days</label>
+            <select value={state.trainingProgram.conditioningPreference} onChange={(e) => onUpdateTrainingProgram({ conditioningPreference: e.target.value as TrainingProgram['conditioningPreference'] })} className="w-full bg-stone-50 border border-transparent focus:border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-700 outline-none">
+              <option value="none">None</option>
+              <option value="1_day">1 Day</option>
+              <option value="2_days">2 Days</option>
+            </select>
+          </div>
+
+          <div className="bg-stone-50 rounded-2xl p-4 space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Your Weekly Structure</p>
+            {generatedPreview.map((day) => (
+              <p key={day.day} className="text-xs text-stone-600"><span className="font-semibold">{day.day}</span> — {day.label}</p>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Cycle Configuration Section */}
       <section className="space-y-6">
         <div className="px-1">
@@ -284,10 +330,7 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
              <div className="px-1 py-2 flex justify-between items-center bg-stone-50 rounded-2xl px-4">
                 <span className="text-[10px] text-stone-400 font-bold uppercase">Selected</span>
                 <span className="text-xs font-medium text-[#7c9082]">
-                  {(() => {
-                    const [y, m, d] = state.cycleConfig.lastStartDate.split('-').map(Number);
-                    return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
-                  })()}
+                  {formatLocalDate(parseDayString(state.cycleConfig.lastStartDate), { month: 'long', day: 'numeric', year: 'numeric' })}
                 </span>
              </div>
            </div>
@@ -306,50 +349,7 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
         </div>
       </section>
 
-      {/* Split Configuration Section */}
-      <section className="space-y-6">
-        <div className="px-1">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4a373] mb-1">Weekly Split Structure</h3>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {SPLIT_TEMPLATES.map((template) => (
-            <button
-              key={template.id}
-              onClick={() => handleTemplateSelect(template)}
-              className={`p-5 rounded-[2rem] text-left border transition-all ${
-                state.selectedTemplateId === template.id
-                  ? 'border-[#7c9082] bg-white shadow-lg ring-1 ring-[#7c9082]/10'
-                  : 'border-stone-100 bg-stone-50/50 hover:bg-stone-50'
-              }`}
-            >
-              <h4 className={`text-xs font-bold mb-1 ${state.selectedTemplateId === template.id ? 'text-[#7c9082]' : 'text-stone-600'}`}>
-                {template.name}
-              </h4>
-              <p className="text-[9px] text-stone-400 leading-tight">
-                {template.description}
-              </p>
-            </button>
-          ))}
-        </div>
-        <div className="bg-white border border-stone-100 rounded-[2rem] p-7 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-stone-500">Edit Specific Days</h4>
-          </div>
-          <div className="space-y-3">
-            {state.weeklySplit.map((day, idx) => (
-              <div key={idx} className="flex items-center gap-4">
-                <div className="w-10 text-[10px] font-bold text-stone-300 uppercase">{day.day}</div>
-                <input 
-                  type="text" 
-                  value={day.label}
-                  onChange={(e) => handleCustomDayLabel(idx, e.target.value)}
-                  className="flex-1 bg-stone-50/50 hover:bg-stone-50 border border-transparent focus:border-stone-100 focus:bg-white rounded-xl px-4 py-3 text-xs font-medium text-stone-700 transition-all outline-none"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+
     </div>
   );
 };
