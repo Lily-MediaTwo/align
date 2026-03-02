@@ -23,6 +23,9 @@ interface WorkoutTrackerProps {
 
 
 class WorkoutErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  declare props: { children: React.ReactNode };
+  declare state: { hasError: boolean };
+
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false };
