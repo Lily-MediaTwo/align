@@ -727,14 +727,6 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 <span className="text-[9px] font-bold uppercase tracking-widest text-[#7c9082]">{trainingProgram.goal}</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {sessionBlocks.map((block) => (
-                  <div key={block.type} className="bg-stone-50 border border-stone-100 rounded-2xl px-3 py-2.5 text-center min-h-[64px] flex flex-col justify-center">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">{block.title}</p>
-                  </div>
-                ))}
-              </div>
-
               <div className="bg-stone-50 rounded-2xl px-4 py-3 text-[11px] text-stone-500">
                 Target Session Duration: {trainingProgram.sessionLengthMin} minutes
               </div>
