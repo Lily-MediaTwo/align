@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { AppState, CyclePhase } from '../types';
 import { getAdaptiveNudge } from '../services/geminiService';
 import { formatLocalDate, getDateDaysAgo, parseDayString, isOnOrAfterDate, formatLocalTime } from '../utils/dateUtils';
-import { generateWeeklyStructure } from '../lib/programGenerator';
+import { getFullWeekStructure } from '../lib/weekGenerator';
+import WeeklyStructurePreview from './WeeklyStructurePreview';
 
 interface DashboardProps {
   state: AppState;
@@ -25,10 +26,8 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   const localToday = parseDayString(state.todayStr);
   const dateStr = formatLocalDate(localToday, { weekday: 'long', month: 'long', day: 'numeric' }, 'en-US');
   const dayIndex = (localToday.getDay() + 6) % 7;
-  const weeklyStructure = generateWeeklyStructure(state.trainingProgram);
-  const weekDays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const todayKey = weekDays[dayIndex];
-  const todaySplit = weeklyStructure.find(item => item.day === todayKey) || weeklyStructure[0];
+  const weeklyStructure = getFullWeekStructure(state.trainingProgram);
+  const todaySplit = weeklyStructure[dayIndex];
 
   // Cycle Phase Calculation
   const getCycleDay = () => {
@@ -92,28 +91,11 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
         <div className="flex justify-between items-center mb-4 px-1">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Weekly Rhythm</h3>
         </div>
-        <div className="flex justify-between gap-1">
-          {weeklyStructure.map((item) => {
-            const isToday = item.day === todayKey;
-            return (
-              <div 
-                key={item.day}
-                className={`flex-1 flex flex-col items-center py-4 rounded-2xl border transition-all duration-300 ${
-                  isToday 
-                    ? 'bg-[#7c9082] border-[#7c9082] text-white shadow-lg' 
-                    : 'bg-white border-stone-50 text-stone-300'
-                }`}
-              >
-                <span className={`text-[8px] font-bold uppercase mb-1.5 ${isToday ? 'text-white/70' : 'text-stone-300'}`}>
-                  {item.day[0]}
-                </span>
-                <span className="text-[8px] font-bold text-center leading-[1.1] scale-[0.85] origin-top">
-                  {item.label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        <WeeklyStructurePreview
+          week={weeklyStructure}
+          todayIndex={dayIndex}
+          completedDayIndexes={state.workouts.filter(w => w.completed).map(w => ((new Date(w.date).getDay()+6)%7))}
+        />
       </section>
 
       {/* Adaptive Nudge (Gemini) */}

@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { AppState, CycleConfig, UserGoal, TrainingProgram } from '../types';
 import { formatLocalDate, parseDayString, toLocalDayString } from '../utils/dateUtils';
-import { generateWeeklyStructure } from '../lib/programGenerator';
+import { getFullWeekStructure } from '../lib/weekGenerator';
+import WeeklyStructurePreview from './WeeklyStructurePreview';
 
 interface AlignmentCenterProps {
   state: AppState;
@@ -115,7 +116,7 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
   };
 
 
-  const generatedPreview = generateWeeklyStructure(state.trainingProgram);
+  const generatedPreview = getFullWeekStructure(state.trainingProgram);
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-24">
@@ -305,11 +306,9 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
             </select>
           </div>
 
-          <div className="bg-stone-50 rounded-2xl p-4 space-y-2">
+          <div className="bg-stone-50 rounded-2xl p-4 space-y-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Your Weekly Structure</p>
-            {generatedPreview.map((day) => (
-              <p key={day.day} className="text-xs text-stone-600"><span className="font-semibold">{day.day}</span> — {day.label}</p>
-            ))}
+            <WeeklyStructurePreview week={generatedPreview} />
           </div>
         </div>
       </section>

@@ -1,8 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
-import { Workout, Exercise, ExerciseDefinition, SetLog, EquipmentType, WorkoutBlock, WorkoutBlockType, MovementPattern, TrainingProgram } from '../types';
+import { Workout, Exercise, ExerciseDefinition, SetLog, EquipmentType, WorkoutBlock, WorkoutBlockType, MovementPattern, TrainingProgram, WorkoutSectionType, PrimaryMuscle } from '../types';
 import { EQUIPMENT_CONFIG, COMMON_EXERCISES } from '../constants';
 import { generateWeeklyStructure, getTodayStructure } from '../lib/programGenerator';
+import { getFullWeekStructure } from '../lib/weekGenerator';
+import { getWorkoutSections, inferSectionType } from '../lib/workoutStructure';
 import { buildExerciseProgress, estimateWeeklyGluteSets, getProgressionSuggestion, getSessionExerciseCap } from '../lib/progression';
 import { formatLocalDate, getDateDaysAgo, isOnOrAfterDate, parseDayString } from '../utils/dateUtils';
 
@@ -31,10 +33,12 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 }) => {
   const [view, setView] = useState<'active' | 'history'>(activeWorkout ? 'active' : 'history');
   const [isAdding, setIsAdding] = useState(false);
-  const [newExercise, setNewExercise] = useState<{ name: string; category: string; equipment: EquipmentType }>({
+  const [newExercise, setNewExercise] = useState<{ name: string; category: string; equipment: EquipmentType; movementPattern: MovementPattern; primaryMuscle: PrimaryMuscle }>({
     name: '',
     category: 'Chest',
-    equipment: 'barbell'
+    equipment: 'barbell',
+    movementPattern: 'isolation',
+    primaryMuscle: 'core',
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewFilter, setViewFilter] = useState<string>('All');
@@ -42,13 +46,17 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   // History Filters
   const [historyDateRange, setHistoryDateRange] = useState<'all' | '7' | '30'>('all');
   const [historyTypeFilter, setHistoryTypeFilter] = useState<string>('All');
-  const [exercisePhaseOverrides, setExercisePhaseOverrides] = useState<Record<string, WorkoutBlockType>>({});
+  const [exercisePhaseOverrides, setExercisePhaseOverrides] = useState<Record<string, WorkoutSectionType>>({});
   const [collapsedBlocks, setCollapsedBlocks] = useState<Record<string, boolean>>({});
+  const [activationComplete, setActivationComplete] = useState(false);
+  const [showConditioning, setShowConditioning] = useState(false);
 
   const localToday = parseDayString(todayStr);
   const dayIndex = (localToday.getDay() + 6) % 7;
   const todayDisplayStr = formatLocalDate(localToday, { weekday: 'long', month: 'long', day: 'numeric' }, 'en-US');
   const weeklyStructure = useMemo(() => generateWeeklyStructure(trainingProgram), [trainingProgram]);
+  const fullWeek = useMemo(() => getFullWeekStructure(trainingProgram), [trainingProgram]);
+  const todayWeekDay = fullWeek[dayIndex];
   const todayStructure = useMemo(() => getTodayStructure(trainingProgram, dayIndex), [trainingProgram, dayIndex]);
   const currentMovementPriority = todayStructure?.movementPriority || [];
 
@@ -244,6 +252,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       return Math.max(0, Math.round(parsed));
     }
 
+    if (field === 'rir') {
+      return Math.max(0, Math.min(4, Math.round(parsed)));
+    }
+
     if (field === 'weight') {
       return Math.max(0, Math.round(parsed * 10) / 10);
     }
@@ -329,6 +341,18 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     });
   };
 
+
+  const moveExercise = (exerciseId: string, direction: -1 | 1) => {
+    if (!activeWorkout) return;
+    const idx = activeWorkout.exercises.findIndex(e => e.id === exerciseId);
+    const target = idx + direction;
+    if (idx < 0 || target < 0 || target >= activeWorkout.exercises.length) return;
+    const updated = [...activeWorkout.exercises];
+    const [item] = updated.splice(idx, 1);
+    updated.splice(target, 0, item);
+    onUpdate({ ...activeWorkout, exercises: updated });
+  };
+
   const addExercise = (name: string = newExercise.name, category: string = newExercise.category, equipment: EquipmentType = newExercise.equipment) => {
     if (!activeWorkout || !name.trim()) return;
 
@@ -350,8 +374,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
         category: finalCategory,
         equipment: isTimed ? 'bodyweight' : equipment,
         recommendedSets: isTimed ? 1 : 3,
-        primaryMuscles: ['core'],
-        movementPattern: isTimed ? 'carry' : 'isolation',
+        primaryMuscles: [newExercise.primaryMuscle],
+        movementPattern: newExercise.movementPattern,
         isCompound: false,
         defaultRepRange: [8, 12],
         defaultRestSec: 60,
@@ -374,6 +398,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       category: finalCategory,
       equipment: finalEquipment,
       previousStats: prevStats,
+      sectionType: inferSectionType(definition || { name: name.trim(), category: finalCategory, movementPattern: newExercise.movementPattern, primaryMuscles: [newExercise.primaryMuscle], equipment: finalEquipment, recommendedSets: isTimed ? 1 : 3, isCompound: false, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' }, todayWeekDay?.type === 'conditioning' ? 'conditioning' : 'lift'),
       sets: isTimed
         ? (prevStats
             ? prevStats.map(s => ({ durationMinutes: s.durationMinutes, isCompleted: false }))
@@ -387,7 +412,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       ...activeWorkout,
       exercises: [...activeWorkout.exercises, exercise]
     });
-    setNewExercise({ name: '', category: 'Chest', equipment: 'barbell' });
+    setNewExercise({ name: '', category: 'Chest', equipment: 'barbell', movementPattern: 'isolation', primaryMuscle: 'core' });
     setIsAdding(false);
   };
 
@@ -497,11 +522,12 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     });
   }, [workoutBlocksForView]);
 
-  const phaseOptions: Array<{ value: WorkoutBlockType; label: string }> = [
-    { value: 'warmup', label: 'Warm' },
-    { value: 'compound', label: 'Compound' },
-    { value: 'accessory', label: 'Isolate' },
-    { value: 'cooldown', label: 'Cool' },
+  const phaseOptions: Array<{ value: WorkoutSectionType; label: string }> = [
+    { value: 'primary', label: 'Primary' },
+    { value: 'secondary', label: 'Secondary' },
+    { value: 'accessory', label: 'Accessory' },
+    { value: 'core', label: 'Core' },
+    { value: 'conditioning_optional', label: 'Conditioning' },
   ];
 
   const hasAnyCompletedSet = (workout: Workout) =>
@@ -511,24 +537,11 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     setCollapsedBlocks(prev => ({ ...prev, [blockType]: !prev[blockType] }));
   };
 
-  const detectExercisePhase = (exercise: Exercise): WorkoutBlockType => {
-    const override = exercisePhaseOverrides[exercise.id];
+  const detectExercisePhase = (exercise: Exercise): WorkoutSectionType => {
+    const override = exercisePhaseOverrides[exercise.id] as WorkoutSectionType | undefined;
     if (override) return override;
-
-    const lower = exercise.name.toLowerCase();
-
-    if (exercise.category === 'Cardio' || exercise.category === 'Active Recovery') {
-      if (lower.includes('stretch') || lower.includes('mobility') || lower.includes('cool')) return 'cooldown';
-      if (lower.includes('jump') || lower.includes('sprint') || lower.includes('swing')) return 'compound';
-      return 'warmup';
-    }
-
-    if (['Chest', 'Back', 'Legs'].includes(exercise.category)) return 'compound';
-    if (exercise.category === 'Shoulders' && (lower.includes('press') || lower.includes('push press'))) return 'compound';
-    if (['Arms', 'Core'].includes(exercise.category)) return 'accessory';
-    if (exercise.category === 'Shoulders') return 'accessory';
-
-    return 'accessory';
+    if (exercise.sectionType) return exercise.sectionType;
+    return inferSectionType(exercise, todayWeekDay?.type === 'conditioning' ? 'conditioning' : 'lift');
   };
 
   const phaseFilters = useMemo(() => {
@@ -539,12 +552,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const groupedExercises = useMemo(() => {
     if (!activeWorkout) return [] as Array<{ blockType: WorkoutBlockType; title: string; exercises: Exercise[] }>;
 
-    const grouped: Record<WorkoutBlockType, Exercise[]> = {
-      warmup: [],
-      skill_power: [],
-      compound: [],
-      accessory: [],
-      cooldown: [],
+    const grouped: Record<string, Exercise[]> = {
+      activation: [], primary: [], secondary: [], accessory: [], core: [], conditioning_optional: [], recovery_note: [],
     };
 
     activeWorkout.exercises.forEach(ex => {
@@ -554,9 +563,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       grouped[blockType].push(ex);
     });
 
-    return workoutBlocksForView
-      .map(block => ({ blockType: block.type, title: block.title, exercises: grouped[block.type] || [] }))
-      .filter(group => group.exercises.length > 0);
+    const sections = getWorkoutSections(todayWeekDay?.type || 'lift');
+    return sections
+      .map(section => ({ blockType: section.type as any, title: section.title, exercises: grouped[section.type] || [] }))
+      .filter(group => group.exercises.length > 0 || group.blockType === 'activation' || group.blockType === 'recovery_note' || (group.blockType === 'conditioning_optional' && showConditioning));
   }, [activeWorkout, viewFilter, workoutBlocksForView, blockTitleByType, exercisePhaseOverrides]);
 
   const uniqueWorkoutNames = useMemo(() => {
@@ -709,6 +719,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
               <p className="text-sm text-stone-400 mt-1">Plan your phases, then start and track your session.</p>
               <p className="text-[11px] text-stone-500 mt-1">Program day: {programDayTemplate?.name}</p>
               <p className="text-[11px] text-[#7c9082] mt-2 font-semibold">{todayStructure.label} focus: {splitFocusCategories.join(' • ') || 'General'}</p>
+              {todayWeekDay?.type === 'rest' && <p className="text-[11px] text-stone-400 mt-1">Rest & Recovery day</p>}
             </header>
 
             <div className="bg-white border border-stone-100 rounded-[2rem] p-5 shadow-sm space-y-4">
@@ -775,8 +786,9 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 <p className="text-sm text-stone-600 mt-1">{plannedExercises.length} selected across phases</p>
               </div>
               <button
+                disabled={todayWeekDay?.type === 'rest'}
                 onClick={() => onStart(todayStructure?.label || 'Workout Session', sessionBlocks, plannedExercises)}
-                className="px-8 py-3 bg-[#7c9082] text-white rounded-full font-semibold text-sm shadow-xl shadow-[#7c9082]/20 active:scale-95 transition-all"
+                className="px-8 py-3 bg-[#7c9082] text-white rounded-full font-semibold text-sm shadow-xl shadow-[#7c9082]/20 active:scale-95 transition-all disabled:opacity-40"
               >
                 Start Workout
               </button>
@@ -954,6 +966,21 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-stone-300 uppercase tracking-widest ml-1">Movement</label>
+                      <select className="w-full bg-stone-50 p-3 rounded-xl text-xs outline-none border border-stone-100 font-medium text-stone-600" value={newExercise.movementPattern} onChange={e => setNewExercise({ ...newExercise, movementPattern: e.target.value as MovementPattern })}>
+                        <option value="squat">Squat</option><option value="hinge">Hinge</option><option value="lunge">Lunge</option><option value="horizontal_push">H Push</option><option value="vertical_push">V Push</option><option value="horizontal_pull">H Pull</option><option value="vertical_pull">V Pull</option><option value="glute_bridge">Glute Bridge</option><option value="isolation">Isolation</option><option value="carry">Carry</option><option value="core">Core</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-stone-300 uppercase tracking-widest ml-1">Primary Muscle</label>
+                      <select className="w-full bg-stone-50 p-3 rounded-xl text-xs outline-none border border-stone-100 font-medium text-stone-600" value={newExercise.primaryMuscle} onChange={e => setNewExercise({ ...newExercise, primaryMuscle: e.target.value as PrimaryMuscle })}>
+                        <option value="glutes">Glutes</option><option value="quads">Quads</option><option value="hamstrings">Hamstrings</option><option value="calves">Calves</option><option value="chest">Chest</option><option value="back">Back</option><option value="shoulders">Shoulders</option><option value="biceps">Biceps</option><option value="triceps">Triceps</option><option value="core">Core</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <button
                     onClick={() => addExercise()}
                     disabled={!newExercise.name.trim()}
@@ -979,6 +1006,18 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                       <span className="text-xs text-stone-400">{isCollapsed ? '▾' : '▴'}</span>
                     </button>
 
+                    {!isCollapsed && blockType === 'activation' && (
+                      <div className="bg-stone-50 border border-stone-100 rounded-2xl p-4 flex items-center justify-between">
+                        <p className="text-sm text-stone-500">Complete activation and movement prep.</p>
+                        <button onClick={() => setActivationComplete(v => !v)} className={`px-3 py-1 rounded-full text-xs font-bold ${activationComplete ? 'bg-[#7c9082] text-white' : 'bg-white border border-stone-200 text-stone-500'}`}>{activationComplete ? 'Completed' : 'Mark Complete'}</button>
+                      </div>
+                    )}
+                    {!isCollapsed && blockType === 'recovery_note' && (
+                      <div className="bg-stone-50 border border-stone-100 rounded-2xl p-4 text-sm text-stone-500">Hydrate, walk lightly, and prioritize sleep to recover for the next session.</div>
+                    )}
+                    {!isCollapsed && blockType === 'conditioning_optional' && (
+                      <div className="mb-2"><button onClick={() => setShowConditioning(v => !v)} className="text-xs font-bold text-[#7c9082]">{showConditioning ? 'Hide Conditioning' : 'Add Conditioning'}</button></div>
+                    )}
                     {!isCollapsed && exercises.map((exercise) => {
                       const isTimed = ['Cardio', 'Active Recovery'].includes(exercise.category);
                       const currentPhase = detectExercisePhase(exercise);
@@ -1008,7 +1047,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                                 <select
                                   className="text-[10px] font-bold uppercase text-[#7c9082] bg-[#7c9082]/10 border border-[#7c9082]/20 rounded-full px-2 py-0.5"
                                   value={currentPhase}
-                                  onChange={(e) => setExercisePhaseOverrides(prev => ({ ...prev, [exercise.id]: e.target.value as WorkoutBlockType }))}
+                                  onChange={(e) => setExercisePhaseOverrides(prev => ({ ...prev, [exercise.id]: e.target.value as WorkoutSectionType }))}
                                 >
                                   {phaseOptions.map((option) => (
                                     <option key={option.value} value={option.value}>{option.label}</option>
@@ -1016,7 +1055,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                                 </select>
                               </div>
                             </div>
-                            <button onClick={() => setEditingId(editingId === exercise.id ? null : exercise.id)} className="text-stone-300">•••</button>
+                            <div className="flex items-center gap-2"><button onClick={() => moveExercise(exercise.id, -1)} className="text-stone-300">↑</button><button onClick={() => moveExercise(exercise.id, 1)} className="text-stone-300">↓</button><button onClick={() => setEditingId(editingId === exercise.id ? null : exercise.id)} className="text-stone-300">•••</button></div>
                           </div>
 
                           {editingId === exercise.id && (
@@ -1028,10 +1067,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                             </div>
                           )}
 
-                          <div className={`grid ${isTimed ? 'grid-cols-4' : 'grid-cols-5'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
+                          <div className={`grid ${isTimed ? 'grid-cols-4' : 'grid-cols-6'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
                             <div>{isTimed ? 'RND' : 'SET'}</div>
                             <div>PREV</div>
-                            {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div></>}
+                            {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div><div className="text-center">RIR</div></>}
                             <div></div>
                           </div>
                           <div className="space-y-2">
@@ -1049,6 +1088,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                                     <>
                                       <input type="number" min={0} step={0.5} className="w-full bg-transparent text-center text-[15px] font-semibold outline-none border-b border-stone-200" value={set.weight ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'weight', e.target.value)} />
                                       <input type="number" min={0} step={1} className="w-full bg-transparent text-center text-[15px] font-semibold outline-none border-b border-stone-200" value={set.reps ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'reps', e.target.value)} />
+                                      <select className="w-full bg-transparent text-center text-[13px] font-semibold outline-none border-b border-stone-200" value={set.rir ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'rir' as keyof SetLog, e.target.value)}><option value="">RIR</option><option value={0}>0</option><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option></select>
                                     </>
                                   )}
                                   <div className="flex justify-end gap-1">

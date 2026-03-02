@@ -56,6 +56,24 @@ export interface GeneratedWeek {
   isConditioning?: boolean;
 }
 
+
+
+export interface WeekDay {
+  dayIndex: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  label: string;
+  type: 'lift' | 'conditioning' | 'rest';
+  focus?: string;
+}
+
+export type WorkoutSectionType =
+  | 'activation'
+  | 'primary'
+  | 'secondary'
+  | 'accessory'
+  | 'core'
+  | 'conditioning_optional'
+  | 'recovery_note';
+
 export interface ProgramDayTemplate {
   name: string;
   focusMuscles: PrimaryMuscle[];
@@ -80,6 +98,7 @@ export interface WorkoutBlock {
 export interface SetLog {
   reps?: number;
   weight?: number;
+  rir?: number;
   durationMinutes?: number;
   isCompleted: boolean;
 }
@@ -107,6 +126,7 @@ export interface Exercise extends ExerciseDefinition {
     durationMinutes?: number;
   }[];
   progression?: ExerciseProgress;
+  sectionType?: WorkoutSectionType;
 }
 
 export interface Workout {
