@@ -20,6 +20,34 @@ interface WorkoutTrackerProps {
   trainingProgram: TrainingProgram;
 }
 
+
+class WorkoutErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch() {
+    // intentionally swallow to keep workout UI resilient
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 text-center text-red-400">
+          Something went wrong. Unable to load workout.
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   activeWorkout,
   completedWorkouts,
@@ -31,6 +59,13 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   todayStr,
   trainingProgram
 }) => {
+  if (!trainingProgram || !trainingProgram.goal || !trainingProgram.daysPerWeek || !trainingProgram.emphasis) {
+    return (
+      <div className="p-4 text-center text-sm text-stone-400">
+        Loading training program...
+      </div>
+    );
+  }
   const [view, setView] = useState<'active' | 'history'>(activeWorkout ? 'active' : 'history');
   const [isAdding, setIsAdding] = useState(false);
   const [newExercise, setNewExercise] = useState<{ name: string; category: string; equipment: EquipmentType; movementPattern: MovementPattern; primaryMuscle: PrimaryMuscle }>({
@@ -54,10 +89,33 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const localToday = parseDayString(todayStr);
   const dayIndex = (localToday.getDay() + 6) % 7;
   const todayDisplayStr = formatLocalDate(localToday, { weekday: 'long', month: 'long', day: 'numeric' }, 'en-US');
-  const weeklyStructure = useMemo(() => generateWeeklyStructure(trainingProgram), [trainingProgram]);
+  const weekStructure = useMemo(() => generateWeeklyStructure(trainingProgram) || [], [trainingProgram]);
   const fullWeek = useMemo(() => getFullWeekStructure(trainingProgram), [trainingProgram]);
   const todayWeekDay = fullWeek[dayIndex];
-  const todayStructure = useMemo(() => getTodayStructure(trainingProgram, dayIndex), [trainingProgram, dayIndex]);
+  const todayStructure = useMemo(() => {
+    const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return weekStructure.find(d => d.day === dayLabels[dayIndex]);
+  }, [weekStructure, dayIndex]);
+
+  if (!todayStructure || !todayWeekDay) {
+    return (
+      <div className="p-4 text-center text-sm text-stone-400">
+        No scheduled workout for today.
+      </div>
+    );
+  }
+
+  if (todayWeekDay.type === 'rest') {
+    return (
+      <div className="p-6 text-center space-y-3">
+        <h2 className="text-lg font-semibold">Rest Day</h2>
+        <p className="text-sm text-stone-500">
+          Take a recovery day! Try a gentle walk, mobility, or light stretching.
+        </p>
+      </div>
+    );
+  }
+
   const currentMovementPriority = todayStructure?.movementPriority || [];
 
   const splitCategoryMap: Record<string, string[]> = {
@@ -690,6 +748,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   };
 
   return (
+    <WorkoutErrorBoundary>
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-24">
       {/* View Toggle */}
       <div className="bg-stone-100 p-1 rounded-2xl flex">
@@ -998,7 +1057,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                   No exercises are loaded for this session yet. Use + to add movements or restart with planned exercises.
                 </div>
               )}
-              {groupedExercises.map(({ blockType, title, exercises }) => {
+              {Array.isArray(groupedExercises) && groupedExercises.length > 0 ? groupedExercises.map(({ blockType, title, exercises }) => {
                 const isCollapsed = collapsedBlocks[blockType] || false;
                 return (
                   <div key={blockType} className="space-y-3">
@@ -1110,7 +1169,11 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                     })}
                   </div>
                 );
-              })}
+              }) : (
+                <div className="bg-white border border-stone-100 rounded-2xl p-5 text-sm text-stone-500 text-center">
+                  No exercises scheduled in this session.
+                </div>
+              )}
             </div>
 
             <button
@@ -1212,6 +1275,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
         </div>
       )}
     </div>
+    </WorkoutErrorBoundary>
   );
 };
 
