@@ -81,7 +81,11 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-stone-300">Today's Focus</p>
+<<<<<<< codex/review-app-for-completion-of-refactoring-tasks-ixue8u
             <h3 className="text-xl sm:text-2xl font-medium text-[#4a5d50] serif">{todaySplit?.focus || todaySplit?.label || 'Balance'}</h3>
+=======
+            <h3 className="text-2xl font-medium text-[#4a5d50] serif">{todaySplit?.focus || todaySplit?.label || 'Balance'}</h3>
+>>>>>>> main
           </div>
         </div>
       </section>
