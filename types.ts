@@ -116,10 +116,21 @@ export interface ExerciseDefinition {
   difficulty: 'beginner' | 'intermediate' | 'advanced';
 }
 
-export interface Exercise extends ExerciseDefinition {
+export interface Exercise {
   id: string;
+  definition: ExerciseDefinition;
   sets: SetLog[];
   equipment?: EquipmentType;
+  // Legacy flattened fields kept optional for migration-safe compatibility
+  name?: string;
+  category?: string;
+  recommendedSets?: number;
+  primaryMuscles?: PrimaryMuscle[];
+  movementPattern?: MovementPattern;
+  isCompound?: boolean;
+  defaultRepRange?: [number, number];
+  defaultRestSec?: number;
+  difficulty?: "beginner" | "intermediate" | "advanced";
   previousStats?: {
     reps?: number;
     weight?: number;
