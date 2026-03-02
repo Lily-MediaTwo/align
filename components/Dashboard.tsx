@@ -81,21 +81,9 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-stone-300">Today's Focus</p>
-            <h3 className="text-2xl font-medium text-[#4a5d50] serif">{todaySplit?.label || 'Balance'}</h3>
+            <h3 className="text-2xl font-medium text-[#4a5d50] serif">{todaySplit?.focus || todaySplit?.label || 'Balance'}</h3>
           </div>
         </div>
-      </section>
-
-      {/* Full 7-Day Split Rhythm */}
-      <section>
-        <div className="flex justify-between items-center mb-4 px-1">
-          <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Weekly Rhythm</h3>
-        </div>
-        <WeeklyStructurePreview
-          week={weeklyStructure}
-          todayIndex={dayIndex}
-          completedDayIndexes={state.workouts.filter(w => w.completed).map(w => ((new Date(w.date).getDay()+6)%7))}
-        />
       </section>
 
       {/* Adaptive Nudge (Gemini) */}
@@ -161,6 +149,17 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           </p>
           <p className="text-[10px] text-rose-300 font-bold uppercase tracking-widest mt-2">— Day {dayOfCycle} of {state.cycleConfig.cycleLength}</p>
         </div>
+      </section>
+
+      {/* Full 7-Day Split Rhythm */}
+      <section>
+        <div className="flex justify-between items-center mb-4 px-1">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Weekly Rhythm</h3>
+        </div>
+        <WeeklyStructurePreview
+          week={weeklyStructure}
+          todayIndex={dayIndex}
+        />
       </section>
     </div>
   );
