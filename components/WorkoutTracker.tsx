@@ -771,7 +771,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
             <header className="text-center pt-4">
               <h3 className="serif text-2xl text-stone-800">Workout Planner</h3>
               <p className="text-sm text-stone-400 mt-1">Plan your phases, then start and track your session.</p>
-              <p className="text-[11px] text-stone-500 mt-1">Program day: {programDayTemplate?.name || fallbackDayLabel}</p>
+              <p className="text-[11px] text-stone-500 mt-1">Program day: {todayStructure?.label || todayWeekDay?.focus || fallbackDayLabel}</p>
               <p className="text-[11px] text-[#7c9082] mt-2 font-semibold">{todayLabel} focus: {splitFocusCategories.join(' • ') || 'General'}</p>
               {isRecoveryDay && <p className="text-[11px] text-stone-400 mt-1">No lift scheduled today — choose active recovery, cardio, or mobility.</p>}
             </header>
