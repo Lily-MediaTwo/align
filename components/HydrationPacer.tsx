@@ -65,7 +65,7 @@ const HydrationPacer: React.FC<HydrationPacerProps> = ({ logs, dailyGoal, hydrat
   }, [dailyGoal, hydrationGoals]);
 
   const totalsByDay = useMemo(() => {
-    return logs.reduce<Record<string, number>>((acc, log) => {
+    return logs.reduce((acc: Record<string, number>, log) => {
       acc[log.date] = (acc[log.date] || 0) + log.amountOz;
       return acc;
     }, {});
