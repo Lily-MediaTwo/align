@@ -96,27 +96,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return weekStructure.find(d => d.day === dayLabels[dayIndex]);
   }, [weekStructure, dayIndex]);
-
-  if (!todayStructure || !todayWeekDay) {
-    return (
-      <div className="p-4 text-center text-sm text-stone-400">
-        No scheduled workout for today.
-      </div>
-    );
-  }
-
-  if (todayWeekDay.type === 'rest') {
-    return (
-      <div className="p-6 text-center space-y-3">
-        <h2 className="text-lg font-semibold">Rest Day</h2>
-        <p className="text-sm text-stone-500">
-          Take a recovery day! Try a gentle walk, mobility, or light stretching.
-        </p>
-      </div>
-    );
-  }
-
-  const currentMovementPriority = todayStructure?.movementPriority || [];
+  const fallbackDayLabel = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][dayIndex];
+  const isRecoveryDay = todayWeekDay?.type === 'rest' || !todayStructure;
+  const todayLabel = todayStructure?.label || (isRecoveryDay ? 'Active Recovery' : 'Workout Session');
+  const currentMovementPriority = todayStructure?.movementPriority || (isRecoveryDay ? ['carry', 'core', 'isolation'] : []);
 
   const splitCategoryMap: Record<string, string[]> = {
     push: ['Chest', 'Shoulders', 'Arms'],
@@ -133,17 +116,29 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     rest: ['Active Recovery'],
   };
 
-  const splitLabelLower = todayStructure?.label.toLowerCase() || '';
+  const splitLabelLower = todayLabel.toLowerCase();
   const matchedSplitKey = Object.keys(splitCategoryMap).find(k => splitLabelLower.includes(k));
-  const splitFocusCategories = matchedSplitKey ? splitCategoryMap[matchedSplitKey] : [];
+  const splitFocusCategories = isRecoveryDay
+    ? ['Cardio', 'Active Recovery', 'Core']
+    : matchedSplitKey
+      ? splitCategoryMap[matchedSplitKey]
+      : [];
 
 
   const goalPrescription = useMemo(() => {
+    if (isRecoveryDay) {
+      return {
+        sets: '2-3',
+        reps: '8-15 or timed',
+        rest: '45-75 sec',
+      };
+    }
+
     if (trainingProgram.goal === 'strength') {
       return { sets: '3-5', reps: '3-6', rest: '2-3 min' };
     }
     return { sets: '3-4', reps: '8-12', rest: '60-90 sec' };
-  }, [trainingProgram.goal]);
+  }, [trainingProgram.goal, isRecoveryDay]);
 
   const sessionBlocks = useMemo((): WorkoutBlock[] => {
     const base: WorkoutBlock[] = [
@@ -266,7 +261,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       if (candidate && chosen.length < cap) chosen.push(candidate);
     });
 
-    if (trainingProgram.emphasis === 'glutes_legs' && /lower|legs/i.test(todayStructure?.label || '')) {
+    if (trainingProgram.emphasis === 'glutes_legs' && /lower|legs/i.test(todayLabel)) {
       const gluteCandidates = availableExercises
         .filter(ex => ex.primaryMuscles.includes('glutes'))
         .sort((a, b) => Number(b.isCompound) - Number(a.isCompound));
@@ -298,7 +293,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       ...plannerSelections.finisher,
     ];
     return manual.length ? manual : buildProgramDrivenPlan();
-  }, [plannerSelections, currentMovementPriority, availableExercises, trainingProgram, todayStructure]);
+  }, [plannerSelections, currentMovementPriority, availableExercises, trainingProgram, todayLabel]);
 
   const parseSetValue = (field: keyof SetLog, value: string): number | undefined => {
     if (value.trim() === '') return undefined;
@@ -776,9 +771,9 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
             <header className="text-center pt-4">
               <h3 className="serif text-2xl text-stone-800">Workout Planner</h3>
               <p className="text-sm text-stone-400 mt-1">Plan your phases, then start and track your session.</p>
-              <p className="text-[11px] text-stone-500 mt-1">Program day: {programDayTemplate?.name}</p>
-              <p className="text-[11px] text-[#7c9082] mt-2 font-semibold">{todayStructure.label} focus: {splitFocusCategories.join(' • ') || 'General'}</p>
-              {todayWeekDay?.type === 'rest' && <p className="text-[11px] text-stone-400 mt-1">Rest & Recovery day</p>}
+              <p className="text-[11px] text-stone-500 mt-1">Program day: {programDayTemplate?.name || fallbackDayLabel}</p>
+              <p className="text-[11px] text-[#7c9082] mt-2 font-semibold">{todayLabel} focus: {splitFocusCategories.join(' • ') || 'General'}</p>
+              {isRecoveryDay && <p className="text-[11px] text-stone-400 mt-1">No lift scheduled today — choose active recovery, cardio, or mobility.</p>}
             </header>
 
             <div className="bg-white border border-stone-100 rounded-[2rem] p-5 shadow-sm space-y-4">
@@ -816,7 +811,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                   </div>
                   {plannerSuggestions[phase.key].length === 0 ? (
                     <div className="rounded-xl border border-dashed border-stone-200 bg-stone-50 p-3 text-[11px] text-stone-400">
-                      No {phase.title.toLowerCase()} suggestions match your {todayStructure.label.toLowerCase()} focus yet.
+                      No {phase.title.toLowerCase()} suggestions match your {todayLabel.toLowerCase()} focus yet.
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -845,9 +840,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 <p className="text-sm text-stone-600 mt-1">{plannedExercises.length} selected across phases</p>
               </div>
               <button
-                disabled={todayWeekDay?.type === 'rest'}
-                onClick={() => onStart(todayStructure?.label || 'Workout Session', sessionBlocks, plannedExercises.length ? plannedExercises : recommendations.slice(0, 4))}
-                className="px-8 py-3 bg-[#7c9082] text-white rounded-full font-semibold text-sm shadow-xl shadow-[#7c9082]/20 active:scale-95 transition-all disabled:opacity-40"
+                onClick={() => onStart(todayLabel, sessionBlocks, plannedExercises.length ? plannedExercises : recommendations.slice(0, 4))}
+                className="px-8 py-3 bg-[#7c9082] text-white rounded-full font-semibold text-sm shadow-xl shadow-[#7c9082]/20 active:scale-95 transition-all"
               >
                 Start Workout
               </button>
@@ -860,7 +854,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#d4a373]">{todayDisplayStr}</span>
                   <span className="text-[10px] font-bold text-stone-300">•</span>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#7c9082]">{todayStructure.label}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#7c9082]">{todayLabel}</span>
                 </div>
                 <h2 className="serif text-2xl text-stone-800">{activeWorkout.name}</h2>
               </div>
@@ -904,7 +898,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
                   <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                    Suggested for {selectedBlockType === 'all' ? todayStructure.label : sessionBlocks.find(b => b.type === selectedBlockType)?.title}
+                    Suggested for {selectedBlockType === 'all' ? todayLabel : sessionBlocks.find(b => b.type === selectedBlockType)?.title}
                   </h3>
                   {selectedBlockType !== 'all' && (
                     <span className="text-[9px] text-[#7c9082] font-bold uppercase tracking-widest">phase filtered</span>
