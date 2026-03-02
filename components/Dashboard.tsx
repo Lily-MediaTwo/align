@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppState, CyclePhase } from '../types';
 import { getAdaptiveNudge } from '../services/geminiService';
-import { formatLocalDate, getDateDaysAgo, parseDayString, isOnOrAfterDate, formatLocalTime } from '../utils/dateUtils';
+import { formatLocalDate, parseDayString, isInSameTrainingWeek, formatLocalTime } from '../utils/dateUtils';
 import { getFullWeekStructure } from '../lib/weekGenerator';
 import WeeklyStructurePreview from './WeeklyStructurePreview';
 
@@ -81,21 +81,9 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-stone-300">Today's Focus</p>
-            <h3 className="text-2xl font-medium text-[#4a5d50] serif">{todaySplit?.label || 'Balance'}</h3>
+            <h3 className="text-2xl font-medium text-[#4a5d50] serif">{todaySplit?.focus || todaySplit?.label || 'Balance'}</h3>
           </div>
         </div>
-      </section>
-
-      {/* Full 7-Day Split Rhythm */}
-      <section>
-        <div className="flex justify-between items-center mb-4 px-1">
-          <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Weekly Rhythm</h3>
-        </div>
-        <WeeklyStructurePreview
-          week={weeklyStructure}
-          todayIndex={dayIndex}
-          completedDayIndexes={state.workouts.filter(w => w.completed).map(w => ((new Date(w.date).getDay()+6)%7))}
-        />
       </section>
 
       {/* Adaptive Nudge (Gemini) */}
@@ -137,7 +125,7 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-3xl font-light text-stone-700">
-              {state.workouts.filter(w => w.completed && isOnOrAfterDate(w.date, getDateDaysAgo(7))).length}
+              {state.workouts.filter(w => w.completed && isInSameTrainingWeek(w.date, state.todayStr)).length}
             </span>
             <span className="text-xs text-stone-400 font-medium">this week</span>
           </div>
@@ -161,6 +149,17 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           </p>
           <p className="text-[10px] text-rose-300 font-bold uppercase tracking-widest mt-2">— Day {dayOfCycle} of {state.cycleConfig.cycleLength}</p>
         </div>
+      </section>
+
+      {/* Full 7-Day Split Rhythm */}
+      <section>
+        <div className="flex justify-between items-center mb-4 px-1">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Weekly Rhythm</h3>
+        </div>
+        <WeeklyStructurePreview
+          week={weeklyStructure}
+          todayIndex={dayIndex}
+        />
       </section>
     </div>
   );
