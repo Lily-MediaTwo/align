@@ -68,26 +68,30 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 pb-12">
+    <div className="space-y-5 animate-in fade-in duration-700 pb-12">
       {/* Date Header */}
       <section className="pt-4">
         <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-[#d4a373] mb-2">{getGreeting()}</p>
-        <h2 className="serif text-4xl font-semibold text-stone-800 tracking-tight">{dateStr}</h2>
+        <h2 className="serif text-3xl sm:text-4xl font-semibold text-stone-800 tracking-tight">{dateStr}</h2>
         
         {/* Today's Focus Highlight */}
-        <div className="mt-8 flex items-center gap-4 bg-white border border-stone-100 p-6 rounded-[2.5rem] shadow-sm relative group transition-all">
-          <div className="w-16 h-16 rounded-[1.5rem] bg-[#7c9082]/10 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
+        <div className="mt-5 flex items-center gap-3 bg-white border border-stone-100 p-4 rounded-[2rem] shadow-sm relative group transition-all">
+          <div className="w-14 h-14 rounded-[1.2rem] bg-[#7c9082]/10 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
             {todaySplit?.label.toLowerCase().includes('rest') ? '🌿' : '⚡'}
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-stone-300">Today's Focus</p>
+<<<<<<< codex/review-app-for-completion-of-refactoring-tasks-ixue8u
+            <h3 className="text-xl sm:text-2xl font-medium text-[#4a5d50] serif">{todaySplit?.focus || todaySplit?.label || 'Balance'}</h3>
+=======
             <h3 className="text-2xl font-medium text-[#4a5d50] serif">{todaySplit?.focus || todaySplit?.label || 'Balance'}</h3>
+>>>>>>> main
           </div>
         </div>
       </section>
 
       {/* Adaptive Nudge (Gemini) */}
-      <section className="bg-white border border-stone-100 p-6 rounded-[2rem] relative overflow-hidden shadow-sm">
+      <section className="bg-white border border-stone-100 p-5 rounded-[2rem] relative overflow-hidden shadow-sm">
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-3">
             <span className="w-1.5 h-1.5 rounded-full bg-[#7c9082]"></span>
@@ -100,8 +104,8 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
       </section>
 
       {/* Main Stats Momentum */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-[#f0f4f1] p-6 rounded-[2.5rem] border border-[#7c9082]/10 group">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-[#f0f4f1] p-4 rounded-[2rem] border border-[#7c9082]/10 group">
           <div className="flex justify-between items-start mb-4">
             <span className="text-[#7c9082] text-[10px] font-bold uppercase tracking-widest">Hydration</span>
             <span className="group-hover:animate-bounce">💧</span>
@@ -118,7 +122,7 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           </div>
         </div>
 
-        <div className="bg-[#fcf8f4] p-6 rounded-[2.5rem] border border-[#d4a373]/10 group">
+        <div className="bg-[#fcf8f4] p-4 rounded-[2rem] border border-[#d4a373]/10 group">
           <div className="flex justify-between items-start mb-4">
             <span className="text-[#d4a373] text-[10px] font-bold uppercase tracking-widest">Momentum</span>
             <span className="group-hover:rotate-12 transition-transform">💪</span>
@@ -133,7 +137,7 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
       </div>
 
       {/* Dynamic Cycle Intelligence */}
-      <section className="bg-gradient-to-br from-[#fdf2f2] to-[#fff9f0] p-7 rounded-[2.5rem] border border-rose-100/50 shadow-sm">
+      <section className="bg-gradient-to-br from-[#fdf2f2] to-[#fff9f0] p-5 rounded-[2rem] border border-rose-100/50 shadow-sm">
         <div className="flex justify-between items-center mb-5">
           <div className="flex items-center gap-3">
              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-lg">🌸</div>

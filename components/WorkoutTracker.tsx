@@ -1075,12 +1075,22 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
               )}
             </div>
 
-            <button
-              onClick={handleFinishSession}
-              className="w-full bg-[#7c9082] text-white py-5 rounded-3xl font-semibold shadow-xl shadow-[#7c9082]/20 hover:bg-[#6b7d70] transition-all"
-            >
-              Finish & Log Session
-            </button>
+            <div className="sticky bottom-24 z-20">
+              <div className="bg-white/95 backdrop-blur border border-stone-100 rounded-3xl p-2 shadow-xl flex gap-2">
+                <button
+                  onClick={() => setIsAdding(v => !v)}
+                  className="flex-1 bg-stone-100 text-stone-600 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider"
+                >
+                  {isAdding ? 'Close Add' : '+ Add Exercise'}
+                </button>
+                <button
+                  onClick={handleFinishSession}
+                  className="flex-1 bg-[#7c9082] text-white py-3 rounded-2xl text-xs font-bold uppercase tracking-wider shadow-md shadow-[#7c9082]/20"
+                >
+                  Finish Session
+                </button>
+              </div>
+            </div>
           </div>
         )
       ) : (
