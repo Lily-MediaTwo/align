@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Workout, Exercise, ExerciseDefinition, SetLog, EquipmentType, WorkoutBlock, WorkoutBlockType, MovementPattern, TrainingProgram, WorkoutSectionType, PrimaryMuscle } from '../types';
+import { Workout, Exercise, ExerciseDefinition, SetLog, EquipmentType, WorkoutBlock, WorkoutBlockType, MovementPattern, TrainingProgram, WorkoutSectionType, PrimaryMuscle, ExerciseCategory } from '../types';
 import { EQUIPMENT_CONFIG, COMMON_EXERCISES } from '../constants';
 import { generateWeeklyStructure, getTodayStructure } from '../lib/programGenerator';
 import { getFullWeekStructure } from '../lib/weekGenerator';
@@ -72,7 +72,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   }
   const [view, setView] = useState<'active' | 'history'>(activeWorkout ? 'active' : 'history');
   const [isAdding, setIsAdding] = useState(false);
-  const [newExercise, setNewExercise] = useState<{ name: string; category: string; equipment: EquipmentType; movementPattern: MovementPattern; primaryMuscle: PrimaryMuscle }>({
+  const [newExercise, setNewExercise] = useState<{ name: string; category: ExerciseCategory; equipment: EquipmentType; movementPattern: MovementPattern; primaryMuscle: PrimaryMuscle }>({
     name: '',
     category: 'Chest',
     equipment: 'barbell',
@@ -105,12 +105,12 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const currentMovementPriority = todayStructure?.movementPriority || (isRecoveryDay ? ['carry', 'core', 'isolation'] : []);
 
   const splitCategoryMap: Record<string, string[]> = {
-    push: ['Chest', 'Shoulders', 'Arms'],
-    pull: ['Back', 'Arms'],
+    push: ['Chest', 'Shoulders', 'Triceps'],
+    pull: ['Back', 'Biceps'],
     legs: ['Legs'],
-    upper: ['Chest', 'Back', 'Shoulders', 'Arms'],
+    upper: ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps'],
     lower: ['Legs', 'Core'],
-    'full body': ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'],
+    'full body': ['Chest', 'Back', 'Legs', 'Shoulders', 'Biceps', 'Triceps', 'Core'],
     strength: ['Chest', 'Back', 'Legs', 'Shoulders'],
     condition: ['Cardio'],
     endurance: ['Cardio'],
@@ -195,8 +195,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       enforceSplitFocus: true,
     },
     isolate: {
-      categories: ['Arms', 'Core', 'Shoulders', 'Legs'],
-      include: ['curl', 'extension', 'raise', 'pushdown', 'fly', 'plank', 'crunch', 'twist'],
+      categories: ['Biceps', 'Triceps', 'Core', 'Shoulders', 'Legs'],
       enforceSplitFocus: true,
     },
     finisher: {
@@ -209,12 +208,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const plannerSuggestions = useMemo(() => {
     const scoreForPhase = (exercise: ExerciseDefinition, phase: keyof typeof plannerPhaseConfig) => {
       const config = plannerPhaseConfig[phase];
-      const lower = exercise.name.toLowerCase();
       const categoryHit = config.categories.includes(exercise.category);
-      const includeHit = config.include?.some(k => lower.includes(k)) || false;
-      const excludeHit = config.exclude?.some(k => lower.includes(k)) || false;
-
-      return (categoryHit ? 20 : 0) + (includeHit ? 14 : 0) - (excludeHit ? 14 : 0);
+      return categoryHit ? 20 : 0;
     };
 
     const phaseAllowsCategory = (phase: keyof typeof plannerPhaseConfig, category: string) => {
@@ -397,13 +392,13 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     onUpdate({ ...activeWorkout, exercises: updated });
   };
 
-  const addExercise = (name: string = newExercise.name, category: string = newExercise.category, equipment: EquipmentType = newExercise.equipment) => {
+  const addExercise = (name: string = newExercise.name, category: ExerciseCategory = newExercise.category, equipment: EquipmentType = newExercise.equipment) => {
     if (!activeWorkout || !name.trim()) return;
 
     // Check if exercise already in current session
     if (activeWorkout.exercises.some(e => e.name.toLowerCase() === name.toLowerCase())) return;
 
-    const finalCategory = category || 'Push';
+    const finalCategory: ExerciseCategory = category || 'Chest';
 
     // Find exercise definition for recommendations
     const definition = availableExercises.find(ex => ex.name.toLowerCase() === name.toLowerCase())
@@ -895,7 +890,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                         <option value="Back">Back</option>
                         <option value="Legs">Legs</option>
                         <option value="Shoulders">Shoulders</option>
-                        <option value="Arms">Arms</option>
+                        <option value="Biceps">Biceps</option>
+                        <option value="Triceps">Triceps</option>
                         <option value="Core">Core</option>
                         <option value="Cardio">Cardio</option>
                         <option value="Active Recovery">Active Recovery</option>

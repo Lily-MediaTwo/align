@@ -47,6 +47,17 @@ export type Emphasis =
 
 export type ConditioningPreference = 'none' | '1_day' | '2_days';
 
+export type ExerciseCategory =
+  | 'Chest'
+  | 'Back'
+  | 'Shoulders'
+  | 'Legs'
+  | 'Core'
+  | 'Cardio'
+  | 'Active Recovery'
+  | 'Biceps'
+  | 'Triceps';
+
 export interface TrainingProgram {
   goal: Goal;
   daysPerWeek: 3 | 4 | 5 | 6;
@@ -108,7 +119,7 @@ export interface SetLog {
 
 export interface ExerciseDefinition {
   name: string;
-  category: string;
+  category: ExerciseCategory;
   equipment: EquipmentType;
   recommendedSets: number;
   primaryMuscles: PrimaryMuscle[];
@@ -126,7 +137,7 @@ export interface Exercise {
   equipment?: EquipmentType;
   // Legacy flattened fields kept optional for migration-safe compatibility
   name?: string;
-  category?: string;
+  category?: ExerciseCategory;
   recommendedSets?: number;
   primaryMuscles?: PrimaryMuscle[];
   movementPattern?: MovementPattern;
