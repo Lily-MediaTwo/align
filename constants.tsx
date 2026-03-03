@@ -294,7 +294,9 @@ export const MOOD_CONFIG: Record<Mood, { emoji: string; color: string }> = {
   motivated: { emoji: '🔥', color: 'bg-rose-50' },
   stressed: { emoji: '🧩', color: 'bg-violet-50' },
   sore: { emoji: '🦵', color: 'bg-orange-50' },
-  focused: { emoji: '🎯', color: 'bg-cyan-50' }
+  focused: { emoji: '🎯', color: 'bg-cyan-50' },
+  frustrated: { emoji: '😤', color: 'bg-red-50' },
+  sad: { emoji: '🌧️', color: 'bg-slate-100' }
 };
 
 export const COLORS = {

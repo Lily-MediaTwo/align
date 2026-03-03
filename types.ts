@@ -8,7 +8,9 @@ export type Mood =
   | 'motivated'
   | 'stressed'
   | 'sore'
-  | 'focused';
+  | 'focused'
+  | 'frustrated'
+  | 'sad';
 
 export type EquipmentType = 'bodyweight' | 'dumbbell' | 'barbell' | 'cable' | 'kettlebell' | 'machine';
 

@@ -294,6 +294,48 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     return manual.length ? manual : buildProgramDrivenPlan();
   }, [plannerSelections, currentMovementPriority, availableExercises, trainingProgram, todayLabel]);
 
+
+  const buildExerciseFromDefinition = (definition: ExerciseDefinition): Exercise => {
+    const isTimed = ['Cardio', 'Active Recovery'].includes(definition.category);
+    const prevStats = findPreviousStats(definition.name);
+    const maxPrevWeight = !isTimed && prevStats ? Math.max(...prevStats.map(s => s.weight || 0)) : 0;
+
+    return {
+      id: Math.random().toString(36).substr(2, 9),
+      definition,
+      name: definition.name,
+      category: definition.category,
+      equipment: definition.equipment || (isTimed ? 'bodyweight' : 'barbell'),
+      previousStats: prevStats,
+      sectionType: inferSectionType(definition, todayWeekDay?.type === 'conditioning' ? 'conditioning' : 'lift'),
+      sets: isTimed
+        ? (prevStats
+            ? prevStats.map(s => ({ durationMinutes: s.durationMinutes ?? 10, isCompleted: false }))
+            : Array.from({ length: definition.recommendedSets || 1 }).map(() => ({ durationMinutes: 10, isCompleted: false })))
+        : (prevStats
+            ? prevStats.map(s => ({ reps: s.reps || definition.defaultRepRange?.[1] || 10, weight: maxPrevWeight, isCompleted: false }))
+            : Array.from({ length: definition.recommendedSets || 3 }).map(() => ({ reps: definition.defaultRepRange?.[1] || 10, weight: 0, isCompleted: false })))
+    };
+  };
+
+  const applyPlannerToActiveWorkout = () => {
+    if (!activeWorkout) return;
+
+    const selectedPlan = plannedExercises.length ? plannedExercises : recommendations.slice(0, 4);
+    const nextByName = new Map(selectedPlan.map(def => [def.name.toLowerCase(), def]));
+
+    const retainedExercises = activeWorkout.exercises.filter(ex => nextByName.has(ex.name.toLowerCase()));
+    const retainedNames = new Set(retainedExercises.map(ex => ex.name.toLowerCase()));
+    const createdExercises = selectedPlan
+      .filter(def => !retainedNames.has(def.name.toLowerCase()))
+      .map(buildExerciseFromDefinition);
+
+    onUpdate({
+      ...activeWorkout,
+      exercises: [...retainedExercises, ...createdExercises],
+    });
+  };
+
   const parseSetValue = (field: keyof SetLog, value: string): number | undefined => {
     if (value.trim() === '') return undefined;
 
@@ -783,6 +825,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
               <button
                 onClick={() => {
                   if (activeWorkout) {
+                    applyPlannerToActiveWorkout();
                     setShowPlanner(false);
                     return;
                   }
@@ -1059,20 +1102,20 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                             )}
 
                             <div className="overflow-x-auto no-scrollbar">
-                              <div className={`min-w-[430px] grid ${isTimed ? 'grid-cols-[24px_32px_44px_minmax(90px,1fr)_38px]' : 'grid-cols-[24px_32px_44px_minmax(58px,1fr)_minmax(58px,1fr)_minmax(58px,1fr)_38px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
+                              <div className={`min-w-[390px] grid ${isTimed ? 'grid-cols-[22px_30px_40px_minmax(84px,1fr)_34px]' : 'grid-cols-[22px_30px_40px_minmax(52px,1fr)_minmax(52px,1fr)_minmax(50px,1fr)_34px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
                                 <div></div>
                                 <div>{isTimed ? 'RND' : 'SET'}</div>
                                 <div>PREV</div>
                                 {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div><div className="text-center">RIR</div></>}
                                 <div></div>
                               </div>
-                              <div className="space-y-2 min-w-[430px]">
+                              <div className="space-y-2 min-w-[390px]">
                                 {exercise.sets.map((set, idx) => {
                                   const prev = exercise.previousStats?.[idx];
                                   return (
-                                    <div key={idx} className={`grid ${isTimed ? 'grid-cols-[24px_32px_44px_minmax(90px,1fr)_38px]' : 'grid-cols-[24px_32px_44px_minmax(58px,1fr)_minmax(58px,1fr)_minmax(58px,1fr)_38px]'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
+                                    <div key={idx} className={`grid ${isTimed ? 'grid-cols-[22px_30px_40px_minmax(84px,1fr)_34px]' : 'grid-cols-[22px_30px_40px_minmax(52px,1fr)_minmax(52px,1fr)_minmax(50px,1fr)_34px]'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
                                       <div className="flex justify-center">
-                                        <button onClick={() => removeSet(exercise.id, idx)} className="w-5 h-5 text-stone-300 text-xs leading-none">✕</button>
+                                        <button onClick={() => removeSet(exercise.id, idx)} className="w-4 h-4 text-stone-300 text-[10px] leading-none">✕</button>
                                       </div>
                                       <div className="text-[11px] font-bold text-stone-400">#{idx + 1}</div>
                                       <div className="text-[9px] text-stone-300 font-medium">
