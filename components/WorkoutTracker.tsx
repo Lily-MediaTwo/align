@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Workout, Exercise, ExerciseDefinition, SetLog, EquipmentType, WorkoutBlock, WorkoutBlockType, MovementPattern, TrainingProgram, WorkoutSectionType, PrimaryMuscle, ExerciseCategory } from '../types';
 import { EQUIPMENT_CONFIG, COMMON_EXERCISES } from '../constants';
 import { generateWeeklyStructure, getTodayStructure } from '../lib/programGenerator';
@@ -71,6 +71,13 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     );
   }
   const [view, setView] = useState<'active' | 'history'>(activeWorkout ? 'active' : 'history');
+  const [showPlanner, setShowPlanner] = useState(!activeWorkout);
+
+  useEffect(() => {
+    if (!activeWorkout) {
+      setShowPlanner(true);
+    }
+  }, [activeWorkout]);
   const [isAdding, setIsAdding] = useState(false);
   const [newExercise, setNewExercise] = useState<{ name: string; category: ExerciseCategory; equipment: EquipmentType; movementPattern: MovementPattern; primaryMuscle: PrimaryMuscle }>({
     name: '',
@@ -624,9 +631,6 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     if (!activeWorkout) return [] as string[];
     const prompts: string[] = [];
 
-    const completedLowerSessions = allHistory.filter(w => w.completed && /lower|legs/i.test(w.name)).length;
-    if (completedLowerSessions >= 2) prompts.push("You've trained legs twice this week. Next session: recovery focus.");
-
     if (trainingProgram.emphasis === 'glutes_legs') {
       prompts.push(`Glute volume this week: ${weeklyGluteSets} sets (target 12–18)`);
     }
@@ -685,6 +689,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     }
 
     onUpdate({ ...activeWorkout, completed: true });
+    setShowPlanner(true);
     setView('history');
   };
 
@@ -712,7 +717,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       </div>
 
       {view === 'active' ? (
-        !activeWorkout ? (
+        !activeWorkout || showPlanner ? (
           <div className="space-y-6">
             <header className="text-center pt-4">
               <h3 className="serif text-2xl text-stone-800">Workout Planner</h3>
@@ -776,10 +781,17 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 <p className="text-sm text-stone-600 mt-1">{plannedExercises.length} selected across phases</p>
               </div>
               <button
-                onClick={() => onStart(todayLabel, sessionBlocks, plannedExercises.length ? plannedExercises : recommendations.slice(0, 4))}
+                onClick={() => {
+                  if (activeWorkout) {
+                    setShowPlanner(false);
+                    return;
+                  }
+                  onStart(todayLabel, sessionBlocks, plannedExercises.length ? plannedExercises : recommendations.slice(0, 4));
+                  setShowPlanner(false);
+                }}
                 className="px-8 py-3 bg-[#7c9082] text-white rounded-full font-semibold text-sm shadow-xl shadow-[#7c9082]/20 active:scale-95 transition-all"
               >
-                Start Workout
+                {activeWorkout ? 'Resume Active Workout' : 'Start Workout'}
               </button>
             </div>
           </div>
@@ -801,6 +813,13 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                 <span className="text-xl">{isAdding ? '✕' : '+'}</span>
               </button>
             </header>
+
+            <button
+              onClick={() => setShowPlanner(true)}
+              className="w-full bg-stone-100 text-stone-600 py-2.5 rounded-2xl text-[11px] font-bold uppercase tracking-wider"
+            >
+              Return to Planner
+            </button>
 
             {coachingPrompts.length > 0 && (
               <div className="bg-white border border-stone-100 rounded-2xl p-4 space-y-1">
@@ -1034,18 +1053,18 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                           )}
 
                           <div className="overflow-x-auto no-scrollbar">
-                            <div className={`min-w-[520px] grid ${isTimed ? 'grid-cols-[40px_44px_56px_minmax(110px,1fr)_52px]' : 'grid-cols-[40px_44px_56px_minmax(64px,1fr)_minmax(64px,1fr)_minmax(64px,1fr)_52px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
+                            <div className={`min-w-[460px] grid ${isTimed ? 'grid-cols-[30px_36px_48px_minmax(96px,1fr)_42px]' : 'grid-cols-[30px_36px_48px_minmax(64px,1fr)_minmax(64px,1fr)_minmax(64px,1fr)_42px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
                               <div></div>
                               <div>{isTimed ? 'RND' : 'SET'}</div>
                               <div>PREV</div>
                               {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div><div className="text-center">RIR</div></>}
                               <div></div>
                             </div>
-                            <div className="space-y-2 min-w-[520px]">
+                            <div className="space-y-2 min-w-[460px]">
                             {exercise.sets.map((set, idx) => {
                               const prev = exercise.previousStats?.[idx];
                               return (
-                                <div key={idx} className={`grid ${isTimed ? 'grid-cols-[40px_44px_56px_minmax(110px,1fr)_52px]' : 'grid-cols-[40px_44px_56px_minmax(64px,1fr)_minmax(64px,1fr)_minmax(64px,1fr)_52px]'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
+                                <div key={idx} className={`grid ${isTimed ? 'grid-cols-[30px_36px_48px_minmax(96px,1fr)_42px]' : 'grid-cols-[30px_36px_48px_minmax(64px,1fr)_minmax(64px,1fr)_minmax(64px,1fr)_42px]'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
                                   <div className="flex justify-center">
                                     <button onClick={() => removeSet(exercise.id, idx)} className="w-6 h-6 text-stone-300">✕</button>
                                   </div>
