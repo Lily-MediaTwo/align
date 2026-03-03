@@ -1054,12 +1054,20 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
                           <div className="overflow-x-auto no-scrollbar">
                             <div className={`min-w-[430px] grid ${isTimed ? 'grid-cols-[24px_32px_44px_minmax(90px,1fr)_38px]' : 'grid-cols-[24px_32px_44px_minmax(58px,1fr)_minmax(58px,1fr)_minmax(58px,1fr)_38px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
+                            <div className={`min-w-[430px] grid ${isTimed ? 'grid-cols-[24px_32px_44px_minmax(90px,1fr)_38px]' : 'grid-cols-[24px_32px_44px_minmax(58px,1fr)_minmax(58px,1fr)_minmax(58px,1fr)_38px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
                               <div></div>
                               <div>{isTimed ? 'RND' : 'SET'}</div>
                               <div>PREV</div>
                               {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div><div className="text-center">RIR</div></>}
                               <div></div>
                             </div>
+                            <div className="space-y-2 min-w-[430px]">
+                            {exercise.sets.map((set, idx) => {
+                              const prev = exercise.previousStats?.[idx];
+                              return (
+                                <div key={idx} className={`grid ${isTimed ? 'grid-cols-[24px_32px_44px_minmax(90px,1fr)_38px]' : 'grid-cols-[24px_32px_44px_minmax(58px,1fr)_minmax(58px,1fr)_minmax(58px,1fr)_38px]'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
+                                  <div className="flex justify-center">
+                                    <button onClick={() => removeSet(exercise.id, idx)} className="w-5 h-5 text-stone-300 text-xs leading-none">✕</button>
                             <div className="space-y-2 min-w-[430px]">
                             {exercise.sets.map((set, idx) => {
                               const prev = exercise.previousStats?.[idx];
