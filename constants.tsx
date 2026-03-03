@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AppState, UserGoal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType, TrainingProgram, MovementPattern, PrimaryMuscle } from './types';
+import { AppState, UserGoal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType, TrainingProgram, MovementPattern, PrimaryMuscle, Mood } from './types';
 import { getTodayString } from './utils/dateUtils';
 
 const todayString = getTodayString();
@@ -284,13 +284,17 @@ export const INITIAL_STATE: AppState = {
   trainingProgram: DEFAULT_TRAINING_PROGRAM
 };
 
-export const MOOD_CONFIG: Record<string, { emoji: string; color: string }> = {
+export const MOOD_CONFIG: Record<Mood, { emoji: string; color: string }> = {
   calm: { emoji: '🌿', color: 'bg-emerald-50' },
   energized: { emoji: '⚡', color: 'bg-amber-50' },
   tired: { emoji: '☁️', color: 'bg-blue-50' },
   anxious: { emoji: '🌊', color: 'bg-indigo-50' },
   neutral: { emoji: '✨', color: 'bg-stone-50' },
-  happy: { emoji: '☀️', color: 'bg-yellow-50' }
+  happy: { emoji: '☀️', color: 'bg-yellow-50' },
+  motivated: { emoji: '🔥', color: 'bg-rose-50' },
+  stressed: { emoji: '🧩', color: 'bg-violet-50' },
+  sore: { emoji: '🦵', color: 'bg-orange-50' },
+  focused: { emoji: '🎯', color: 'bg-cyan-50' }
 };
 
 export const COLORS = {

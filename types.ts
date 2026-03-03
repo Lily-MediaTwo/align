@@ -1,4 +1,14 @@
-export type Mood = 'calm' | 'energized' | 'tired' | 'anxious' | 'neutral' | 'happy';
+export type Mood =
+  | 'calm'
+  | 'energized'
+  | 'tired'
+  | 'anxious'
+  | 'neutral'
+  | 'happy'
+  | 'motivated'
+  | 'stressed'
+  | 'sore'
+  | 'focused';
 
 export type EquipmentType = 'bodyweight' | 'dumbbell' | 'barbell' | 'cable' | 'kettlebell' | 'machine';
 
