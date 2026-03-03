@@ -61,3 +61,21 @@ export const getDateDaysAgo = (days: number, anchor: Date = new Date()): Date =>
   date.setDate(anchor.getDate() - days);
   return date;
 };
+
+
+export const getStartOfWeek = (anchor: Date | string = new Date()): Date => {
+  const date = normalizeInputDate(anchor);
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayIndexMondayStart = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - dayIndexMondayStart);
+  start.setHours(0, 0, 0, 0);
+  return start;
+};
+
+export const isInSameTrainingWeek = (value: Date | string, anchor: Date | string = new Date()): boolean => {
+  const start = getStartOfWeek(anchor);
+  const next = new Date(start);
+  next.setDate(start.getDate() + 7);
+  const date = normalizeInputDate(value);
+  return date >= start && date < next;
+};
