@@ -148,9 +148,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     ];
   }, [todayWeekDay?.type]);
 
-  const [plannerSelections, setPlannerSelections] = useState<Record<'compound' | 'isolate' | 'finisher', ExerciseDefinition[]>>({
+  const [plannerSelections, setPlannerSelections] = useState<Record<'compound' | 'isolate' | 'core' | 'finisher', ExerciseDefinition[]>>({
     compound: [],
     isolate: [],
+    core: [],
     finisher: [],
   });
 
@@ -188,7 +189,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     };
   }, [trainingProgram.goal]);
 
-  const plannerPhaseConfig: Record<'compound' | 'isolate' | 'finisher', { categories: string[]; include?: string[]; exclude?: string[]; enforceSplitFocus?: boolean; splitOptionalCategories?: string[] }> = {
+  const plannerPhaseConfig: Record<'compound' | 'isolate' | 'core' | 'finisher', { categories: string[]; include?: string[]; exclude?: string[]; enforceSplitFocus?: boolean; splitOptionalCategories?: string[] }> = {
     compound: {
       categories: ['Chest', 'Back', 'Legs', 'Shoulders'],
       exclude: ['curl', 'extension', 'raise', 'pushdown', 'plank', 'twist', 'crunch'],
@@ -197,6 +198,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     isolate: {
       categories: ['Biceps', 'Triceps', 'Core', 'Shoulders', 'Legs'],
       enforceSplitFocus: true,
+    },
+    core: {
+      categories: ['Core'],
+      splitOptionalCategories: ['Core'],
     },
     finisher: {
       categories: ['Cardio', 'Core', 'Active Recovery'],
@@ -219,7 +224,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       return config.splitOptionalCategories?.includes(category) || false;
     };
 
-    const phases: (keyof typeof plannerPhaseConfig)[] = ['compound', 'isolate', 'finisher'];
+    const phases: (keyof typeof plannerPhaseConfig)[] = ['compound', 'isolate', 'core', 'finisher'];
     return phases.reduce((acc, phase) => {
       acc[phase] = [...availableExercises]
         .filter(ex => phaseAllowsCategory(phase, ex.category))
@@ -229,7 +234,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
         .slice(0, 8)
         .map(item => item.ex);
       return acc;
-    }, {} as Record<'compound' | 'isolate' | 'finisher', ExerciseDefinition[]>);
+    }, {} as Record<'compound' | 'isolate' | 'core' | 'finisher', ExerciseDefinition[]>);
   }, [availableExercises, splitFocusCategories]);
 
   const getExercisesForPattern = (pattern: MovementPattern) => {
@@ -260,7 +265,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     return chosen.slice(0, cap);
   };
 
-  const togglePlannerSelection = (phase: 'compound' | 'isolate' | 'finisher', exercise: ExerciseDefinition) => {
+  const togglePlannerSelection = (phase: 'compound' | 'isolate' | 'core' | 'finisher', exercise: ExerciseDefinition) => {
     setPlannerSelections(prev => {
       const exists = prev[phase].some(item => item.name.toLowerCase() === exercise.name.toLowerCase());
       return {
@@ -276,6 +281,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     const manual = [
       ...plannerSelections.compound,
       ...plannerSelections.isolate,
+      ...plannerSelections.core,
       ...plannerSelections.finisher,
     ];
     return manual.length ? manual : buildProgramDrivenPlan();
@@ -728,11 +734,12 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
             </div>
 
             <div className="space-y-4">
-              {([
-                { key: 'compound', title: 'Compound', target: goalExercisePlan.compound },
-                { key: 'isolate', title: 'Isolate', target: goalExercisePlan.isolate },
-                { key: 'finisher', title: 'Finisher', target: goalExercisePlan.finisher },
-              ] as const).map((phase) => (
+                {([
+                  { key: 'compound', title: 'Compound', target: goalExercisePlan.compound },
+                  { key: 'isolate', title: 'Isolate', target: goalExercisePlan.isolate },
+                  { key: 'core', title: 'Core', target: '1-2 exercises' },
+                  { key: 'finisher', title: 'Finisher', target: goalExercisePlan.finisher },
+                ] as const).map((phase) => (
                 <section key={phase.key} className="bg-white border border-stone-100 rounded-[2rem] p-5 shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-bold uppercase tracking-widest text-stone-500">{phase.title}</h4>
@@ -1027,18 +1034,21 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                           )}
 
                           <div className="overflow-x-auto no-scrollbar">
-                            <div className={`min-w-[520px] grid ${isTimed ? 'grid-cols-5' : 'grid-cols-7'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
+                            <div className={`min-w-[520px] grid ${isTimed ? 'grid-cols-[40px_44px_56px_minmax(110px,1fr)_52px]' : 'grid-cols-[40px_44px_56px_minmax(64px,1fr)_minmax(64px,1fr)_minmax(64px,1fr)_52px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
+                              <div></div>
                               <div>{isTimed ? 'RND' : 'SET'}</div>
                               <div>PREV</div>
                               {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div><div className="text-center">RIR</div></>}
-                              <div className="text-center">DEL</div>
-                              <div className="text-center">DONE</div>
+                              <div></div>
                             </div>
                             <div className="space-y-2 min-w-[520px]">
                             {exercise.sets.map((set, idx) => {
                               const prev = exercise.previousStats?.[idx];
                               return (
-                                <div key={idx} className={`grid ${isTimed ? 'grid-cols-5' : 'grid-cols-7'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
+                                <div key={idx} className={`grid ${isTimed ? 'grid-cols-[40px_44px_56px_minmax(110px,1fr)_52px]' : 'grid-cols-[40px_44px_56px_minmax(64px,1fr)_minmax(64px,1fr)_minmax(64px,1fr)_52px]'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
+                                  <div className="flex justify-center">
+                                    <button onClick={() => removeSet(exercise.id, idx)} className="w-6 h-6 text-stone-300">✕</button>
+                                  </div>
                                   <div className="text-[11px] font-bold text-stone-400">#{idx + 1}</div>
                                   <div className="text-[9px] text-stone-300 font-medium">
                                     {prev ? (isTimed ? `${prev.durationMinutes}m` : `${prev.weight}x${prev.reps}`) : '--'}
@@ -1052,9 +1062,6 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                                       <select className="w-full bg-transparent text-center text-[13px] font-semibold outline-none border-b border-stone-200" value={set.rir ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'rir' as keyof SetLog, e.target.value)}><option value="">RIR</option><option value={0}>0</option><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option></select>
                                     </>
                                   )}
-                                  <div className="flex justify-center">
-                                    <button onClick={() => removeSet(exercise.id, idx)} className="w-6 h-6 text-stone-300">✕</button>
-                                  </div>
                                   <div className="flex justify-center">
                                     <button onClick={() => toggleSetComplete(exercise.id, idx)} className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${set.isCompleted ? 'bg-[#7c9082] text-white' : 'bg-white border border-stone-100 text-stone-100'}`}>{set.isCompleted ? '✓' : ''}</button>
                                   </div>
