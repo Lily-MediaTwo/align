@@ -1026,17 +1026,19 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                             </div>
                           )}
 
-                          <div className={`grid ${isTimed ? 'grid-cols-4' : 'grid-cols-6'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
-                            <div>{isTimed ? 'RND' : 'SET'}</div>
-                            <div>PREV</div>
-                            {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div><div className="text-center">RIR</div></>}
-                            <div></div>
-                          </div>
-                          <div className="space-y-2">
+                          <div className="overflow-x-auto no-scrollbar">
+                            <div className={`min-w-[520px] grid ${isTimed ? 'grid-cols-5' : 'grid-cols-7'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
+                              <div>{isTimed ? 'RND' : 'SET'}</div>
+                              <div>PREV</div>
+                              {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div><div className="text-center">RIR</div></>}
+                              <div className="text-center">DEL</div>
+                              <div className="text-center">DONE</div>
+                            </div>
+                            <div className="space-y-2 min-w-[520px]">
                             {exercise.sets.map((set, idx) => {
                               const prev = exercise.previousStats?.[idx];
                               return (
-                                <div key={idx} className={`grid ${isTimed ? 'grid-cols-4' : 'grid-cols-5'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
+                                <div key={idx} className={`grid ${isTimed ? 'grid-cols-5' : 'grid-cols-7'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
                                   <div className="text-[11px] font-bold text-stone-400">#{idx + 1}</div>
                                   <div className="text-[9px] text-stone-300 font-medium">
                                     {prev ? (isTimed ? `${prev.durationMinutes}m` : `${prev.weight}x${prev.reps}`) : '--'}
@@ -1050,13 +1052,16 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                                       <select className="w-full bg-transparent text-center text-[13px] font-semibold outline-none border-b border-stone-200" value={set.rir ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'rir' as keyof SetLog, e.target.value)}><option value="">RIR</option><option value={0}>0</option><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option></select>
                                     </>
                                   )}
-                                  <div className="flex justify-end gap-1">
-                                    <button onClick={() => removeSet(exercise.id, idx)} className="w-5 h-5 text-stone-200">✕</button>
+                                  <div className="flex justify-center">
+                                    <button onClick={() => removeSet(exercise.id, idx)} className="w-6 h-6 text-stone-300">✕</button>
+                                  </div>
+                                  <div className="flex justify-center">
                                     <button onClick={() => toggleSetComplete(exercise.id, idx)} className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${set.isCompleted ? 'bg-[#7c9082] text-white' : 'bg-white border border-stone-100 text-stone-100'}`}>{set.isCompleted ? '✓' : ''}</button>
                                   </div>
                                 </div>
                               );
                             })}
+                            </div>
                           </div>
                           <button onClick={() => addSet(exercise.id)} className="w-full mt-3 py-2 text-[11px] font-bold text-[#7c9082] uppercase">+ Add {isTimed ? 'Round' : 'Set'}</button>
                         </div>
