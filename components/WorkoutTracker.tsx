@@ -969,141 +969,140 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                   No exercises are loaded for this session yet. Use + to add movements or restart with planned exercises.
                 </div>
               )}
-              {Array.isArray(groupedExercises) && groupedExercises.length > 0 ? groupedExercises.map(({ blockType, title, exercises }) => {
-                const isCollapsed = collapsedBlocks[blockType] || false;
-                return (
-                  <div key={blockType} className="space-y-3">
-                    <button
-                      onClick={() => toggleBlockCollapsed(blockType)}
-                      className="w-full flex items-center gap-3 px-2"
-                    >
-                      <h3 className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#d4a373]">{title}</h3>
-                      <div className="h-px flex-1 bg-stone-100"></div>
-                      <span className="text-xs text-stone-400">{isCollapsed ? '▾' : '▴'}</span>
-                    </button>
 
-                    {!isCollapsed && blockType === 'activation' && (
-                      <div className="bg-stone-50 border border-stone-100 rounded-2xl p-4 mb-3">
-                        <p className="text-sm text-stone-500 mb-3">Complete your activation sequence before moving to your primary lifts.</p>
-                        <button onClick={() => setActivationComplete(v => !v)} className={`px-4 py-2 rounded-xl text-xs font-bold ${activationComplete ? 'bg-[#7c9082] text-white' : 'bg-white border border-stone-200 text-stone-500'}`}>
-                          {activationComplete ? 'Activation Complete' : 'Mark Activation Complete'}
-                        </button>
-                      </div>
-                    )}
-                    {!isCollapsed && blockType === 'recovery_note' && (
-                      <div className="bg-stone-50 border border-stone-100 rounded-2xl p-4 text-sm text-stone-500">
-                        Suggested Recovery:
-                        <ul className="mt-2 space-y-1 text-xs text-stone-400">
-                          <li>• 20–30 min walk or incline treadmill</li>
-                          <li>• Light stretching or foam rolling</li>
-                          <li>• Hydrate and prioritize sleep</li>
-                        </ul>
-                      </div>
-                    )}
-                    {!isCollapsed && blockType === 'conditioning_optional' && todayWeekDay?.type !== 'conditioning' && (
-                      <div className="mb-2"><button onClick={() => setShowConditioning(v => !v)} className="text-xs font-bold text-[#7c9082]">{showConditioning ? 'Hide Conditioning' : 'Add Conditioning'}</button></div>
-                    )}
-                    {!isCollapsed && blockType !== 'activation' && blockType !== 'recovery_note' && (blockType !== 'conditioning_optional' || showConditioning || todayWeekDay?.type === 'conditioning') && exercises.map((exercise) => {
-                      const isTimed = ['Cardio', 'Active Recovery'].includes(getExerciseCategory(exercise));
-                      const currentPhase = detectExercisePhase(exercise);
+              {Array.isArray(groupedExercises) && groupedExercises.length > 0 ? (
+                groupedExercises.map(({ blockType, title, exercises }) => {
+                  const isCollapsed = collapsedBlocks[blockType] || false;
 
-                      return (
-                        <div key={exercise.id} className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-100 shadow-sm relative">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="space-y-1.5">
-                              <h3 className="font-semibold text-[15px] text-stone-700">{exercise.name}</h3>
-                              <div className="flex flex-wrap items-center gap-2">
-                                {!isTimed && (
-                                  <>
-                                    <span className="text-[10px] font-bold uppercase text-[#7c9082] bg-[#7c9082]/5 px-2 py-0.5 rounded-full">
-                                      {EQUIPMENT_CONFIG[exercise.equipment || 'barbell'].icon} {EQUIPMENT_CONFIG[exercise.equipment || 'barbell'].label}
-                                    </span>
-                                    <select
-                                      className="text-[10px] font-bold uppercase text-stone-400 bg-transparent border-none outline-none appearance-none cursor-pointer hover:text-stone-500"
-                                      value={exercise.equipment || 'barbell'}
-                                      onChange={(e) => handleEquipmentChange(exercise.id, e.target.value as EquipmentType)}
-                                    >
-                                      {Object.entries(EQUIPMENT_CONFIG).map(([key, config]) => (
-                                        <option key={key} value={key}>Change to {config.label}</option>
-                                      ))}
-                                    </select>
-                                  </>
-                                )}
-                                <select
-                                  className="text-[10px] font-bold uppercase text-[#7c9082] bg-[#7c9082]/10 border border-[#7c9082]/20 rounded-full px-2 py-0.5"
-                                  value={currentPhase}
-                                  onChange={(e) => setExercisePhaseOverrides(prev => ({ ...prev, [exercise.id]: e.target.value as WorkoutSectionType }))}
-                                >
-                                  {phaseOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>{option.label}</option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2"><button onClick={() => moveExercise(exercise.id, -1)} className="text-stone-300">↑</button><button onClick={() => moveExercise(exercise.id, 1)} className="text-stone-300">↓</button><button onClick={() => setEditingId(editingId === exercise.id ? null : exercise.id)} className="text-stone-300">•••</button></div>
-                          </div>
+                  return (
+                    <div key={blockType} className="space-y-3">
+                      <button
+                        onClick={() => toggleBlockCollapsed(blockType)}
+                        className="w-full flex items-center gap-3 px-2"
+                      >
+                        <h3 className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#d4a373]">{title}</h3>
+                        <div className="h-px flex-1 bg-stone-100"></div>
+                        <span className="text-xs text-stone-400">{isCollapsed ? '▾' : '▴'}</span>
+                      </button>
 
-                          {editingId === exercise.id && (
-                            <div className="absolute right-4 top-12 bg-white border border-stone-200 shadow-xl rounded-xl p-1 z-10">
-                              <button onClick={() => {
-                                onUpdate({ ...activeWorkout, exercises: activeWorkout.exercises.filter(e => e.id !== exercise.id) });
-                                setEditingId(null);
-                              }} className="text-red-500 text-xs px-4 py-2 hover:bg-red-50 w-full text-left font-medium">Remove</button>
-                            </div>
-                          )}
+                      {!isCollapsed && blockType === 'activation' && (
+                        <div className="bg-stone-50 border border-stone-100 rounded-2xl p-4 mb-3">
+                          <p className="text-sm text-stone-500 mb-3">Complete your activation sequence before moving to your primary lifts.</p>
+                          <button onClick={() => setActivationComplete(v => !v)} className={`px-4 py-2 rounded-xl text-xs font-bold ${activationComplete ? 'bg-[#7c9082] text-white' : 'bg-white border border-stone-200 text-stone-500'}`}>
+                            {activationComplete ? 'Activation Complete' : 'Mark Activation Complete'}
+                          </button>
+                        </div>
+                      )}
 
-                          <div className="overflow-x-auto no-scrollbar">
-                            <div className={`min-w-[430px] grid ${isTimed ? 'grid-cols-[24px_32px_44px_minmax(90px,1fr)_38px]' : 'grid-cols-[24px_32px_44px_minmax(58px,1fr)_minmax(58px,1fr)_minmax(58px,1fr)_38px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
-                            <div className={`min-w-[430px] grid ${isTimed ? 'grid-cols-[24px_32px_44px_minmax(90px,1fr)_38px]' : 'grid-cols-[24px_32px_44px_minmax(58px,1fr)_minmax(58px,1fr)_minmax(58px,1fr)_38px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
-                              <div></div>
-                              <div>{isTimed ? 'RND' : 'SET'}</div>
-                              <div>PREV</div>
-                              {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div><div className="text-center">RIR</div></>}
-                              <div></div>
-                            </div>
-                            <div className="space-y-2 min-w-[430px]">
-                            {exercise.sets.map((set, idx) => {
-                              const prev = exercise.previousStats?.[idx];
-                              return (
-                                <div key={idx} className={`grid ${isTimed ? 'grid-cols-[24px_32px_44px_minmax(90px,1fr)_38px]' : 'grid-cols-[24px_32px_44px_minmax(58px,1fr)_minmax(58px,1fr)_minmax(58px,1fr)_38px]'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
-                                  <div className="flex justify-center">
-                                    <button onClick={() => removeSet(exercise.id, idx)} className="w-5 h-5 text-stone-300 text-xs leading-none">✕</button>
-                            <div className="space-y-2 min-w-[430px]">
-                            {exercise.sets.map((set, idx) => {
-                              const prev = exercise.previousStats?.[idx];
-                              return (
-                                <div key={idx} className={`grid ${isTimed ? 'grid-cols-[24px_32px_44px_minmax(90px,1fr)_38px]' : 'grid-cols-[24px_32px_44px_minmax(58px,1fr)_minmax(58px,1fr)_minmax(58px,1fr)_38px]'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
-                                  <div className="flex justify-center">
-                                    <button onClick={() => removeSet(exercise.id, idx)} className="w-5 h-5 text-stone-300 text-xs leading-none">✕</button>
-                                  </div>
-                                  <div className="text-[11px] font-bold text-stone-400">#{idx + 1}</div>
-                                  <div className="text-[9px] text-stone-300 font-medium">
-                                    {prev ? (isTimed ? `${prev.durationMinutes}m` : `${prev.weight}x${prev.reps}`) : '--'}
-                                  </div>
-                                  {isTimed ? (
-                                    <input type="number" min={0} step={1} className="w-full bg-transparent text-center text-[15px] font-semibold outline-none border-b border-stone-200" value={set.durationMinutes ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'durationMinutes', e.target.value)} />
-                                  ) : (
+                      {!isCollapsed && blockType === 'recovery_note' && (
+                        <div className="bg-stone-50 border border-stone-100 rounded-2xl p-4 text-sm text-stone-500">
+                          Suggested Recovery:
+                          <ul className="mt-2 space-y-1 text-xs text-stone-400">
+                            <li>• 20–30 min walk or incline treadmill</li>
+                            <li>• Light stretching or foam rolling</li>
+                            <li>• Hydrate and prioritize sleep</li>
+                          </ul>
+                        </div>
+                      )}
+
+                      {!isCollapsed && blockType === 'conditioning_optional' && todayWeekDay?.type !== 'conditioning' && (
+                        <div className="mb-2"><button onClick={() => setShowConditioning(v => !v)} className="text-xs font-bold text-[#7c9082]">{showConditioning ? 'Hide Conditioning' : 'Add Conditioning'}</button></div>
+                      )}
+
+                      {!isCollapsed && blockType !== 'activation' && blockType !== 'recovery_note' && (blockType !== 'conditioning_optional' || showConditioning || todayWeekDay?.type === 'conditioning') && exercises.map((exercise) => {
+                        const isTimed = ['Cardio', 'Active Recovery'].includes(getExerciseCategory(exercise));
+                        const currentPhase = detectExercisePhase(exercise);
+
+                        return (
+                          <div key={exercise.id} className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-100 shadow-sm relative">
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="space-y-1.5">
+                                <h3 className="font-semibold text-[15px] text-stone-700">{exercise.name}</h3>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {!isTimed && (
                                     <>
-                                      <input type="number" min={0} step={0.5} className="w-full bg-transparent text-center text-[15px] font-semibold outline-none border-b border-stone-200" value={set.weight ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'weight', e.target.value)} />
-                                      <input type="number" min={0} step={1} className="w-full bg-transparent text-center text-[15px] font-semibold outline-none border-b border-stone-200" value={set.reps ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'reps', e.target.value)} />
-                                      <select className="w-full bg-transparent text-center text-[13px] font-semibold outline-none border-b border-stone-200" value={set.rir ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'rir' as keyof SetLog, e.target.value)}><option value="">RIR</option><option value={0}>0</option><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option></select>
+                                      <span className="text-[10px] font-bold uppercase text-[#7c9082] bg-[#7c9082]/5 px-2 py-0.5 rounded-full">
+                                        {EQUIPMENT_CONFIG[exercise.equipment || 'barbell'].icon} {EQUIPMENT_CONFIG[exercise.equipment || 'barbell'].label}
+                                      </span>
+                                      <select
+                                        className="text-[10px] font-bold uppercase text-stone-400 bg-transparent border-none outline-none appearance-none cursor-pointer hover:text-stone-500"
+                                        value={exercise.equipment || 'barbell'}
+                                        onChange={(e) => handleEquipmentChange(exercise.id, e.target.value as EquipmentType)}
+                                      >
+                                        {Object.entries(EQUIPMENT_CONFIG).map(([key, config]) => (
+                                          <option key={key} value={key}>Change to {config.label}</option>
+                                        ))}
+                                      </select>
                                     </>
                                   )}
-                                  <div className="flex justify-center">
-                                    <button onClick={() => toggleSetComplete(exercise.id, idx)} className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${set.isCompleted ? 'bg-[#7c9082] text-white' : 'bg-white border border-stone-100 text-stone-100'}`}>{set.isCompleted ? '✓' : ''}</button>
-                                  </div>
+                                  <select
+                                    className="text-[10px] font-bold uppercase text-[#7c9082] bg-[#7c9082]/10 border border-[#7c9082]/20 rounded-full px-2 py-0.5"
+                                    value={currentPhase}
+                                    onChange={(e) => setExercisePhaseOverrides(prev => ({ ...prev, [exercise.id]: e.target.value as WorkoutSectionType }))}
+                                  >
+                                    {phaseOptions.map((option) => (
+                                      <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
+                                  </select>
                                 </div>
-                              );
-                            })}
+                              </div>
+                              <div className="flex items-center gap-2"><button onClick={() => moveExercise(exercise.id, -1)} className="text-stone-300">↑</button><button onClick={() => moveExercise(exercise.id, 1)} className="text-stone-300">↓</button><button onClick={() => setEditingId(editingId === exercise.id ? null : exercise.id)} className="text-stone-300">•••</button></div>
                             </div>
+
+                            {editingId === exercise.id && (
+                              <div className="absolute right-4 top-12 bg-white border border-stone-200 shadow-xl rounded-xl p-1 z-10">
+                                <button onClick={() => {
+                                  onUpdate({ ...activeWorkout, exercises: activeWorkout.exercises.filter(e => e.id !== exercise.id) });
+                                  setEditingId(null);
+                                }} className="text-red-500 text-xs px-4 py-2 hover:bg-red-50 w-full text-left font-medium">Remove</button>
+                              </div>
+                            )}
+
+                            <div className="overflow-x-auto no-scrollbar">
+                              <div className={`min-w-[430px] grid ${isTimed ? 'grid-cols-[24px_32px_44px_minmax(90px,1fr)_38px]' : 'grid-cols-[24px_32px_44px_minmax(58px,1fr)_minmax(58px,1fr)_minmax(58px,1fr)_38px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
+                                <div></div>
+                                <div>{isTimed ? 'RND' : 'SET'}</div>
+                                <div>PREV</div>
+                                {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div><div className="text-center">RIR</div></>}
+                                <div></div>
+                              </div>
+                              <div className="space-y-2 min-w-[430px]">
+                                {exercise.sets.map((set, idx) => {
+                                  const prev = exercise.previousStats?.[idx];
+                                  return (
+                                    <div key={idx} className={`grid ${isTimed ? 'grid-cols-[24px_32px_44px_minmax(90px,1fr)_38px]' : 'grid-cols-[24px_32px_44px_minmax(58px,1fr)_minmax(58px,1fr)_minmax(58px,1fr)_38px]'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
+                                      <div className="flex justify-center">
+                                        <button onClick={() => removeSet(exercise.id, idx)} className="w-5 h-5 text-stone-300 text-xs leading-none">✕</button>
+                                      </div>
+                                      <div className="text-[11px] font-bold text-stone-400">#{idx + 1}</div>
+                                      <div className="text-[9px] text-stone-300 font-medium">
+                                        {prev ? (isTimed ? `${prev.durationMinutes}m` : `${prev.weight}x${prev.reps}`) : '--'}
+                                      </div>
+                                      {isTimed ? (
+                                        <input type="number" min={0} step={1} className="w-full bg-transparent text-center text-[15px] font-semibold outline-none border-b border-stone-200" value={set.durationMinutes ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'durationMinutes', e.target.value)} />
+                                      ) : (
+                                        <>
+                                          <input type="number" min={0} step={0.5} className="w-full bg-transparent text-center text-[15px] font-semibold outline-none border-b border-stone-200" value={set.weight ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'weight', e.target.value)} />
+                                          <input type="number" min={0} step={1} className="w-full bg-transparent text-center text-[15px] font-semibold outline-none border-b border-stone-200" value={set.reps ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'reps', e.target.value)} />
+                                          <select className="w-full bg-transparent text-center text-[13px] font-semibold outline-none border-b border-stone-200" value={set.rir ?? ''} onChange={(e) => handleSetChange(exercise.id, idx, 'rir' as keyof SetLog, e.target.value)}><option value="">RIR</option><option value={0}>0</option><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option></select>
+                                        </>
+                                      )}
+                                      <div className="flex justify-center">
+                                        <button onClick={() => toggleSetComplete(exercise.id, idx)} className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${set.isCompleted ? 'bg-[#7c9082] text-white' : 'bg-white border border-stone-100 text-stone-100'}`}>{set.isCompleted ? '✓' : ''}</button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <button onClick={() => addSet(exercise.id)} className="w-full mt-3 py-2 text-[11px] font-bold text-[#7c9082] uppercase">+ Add {isTimed ? 'Round' : 'Set'}</button>
                           </div>
-                          <button onClick={() => addSet(exercise.id)} className="w-full mt-3 py-2 text-[11px] font-bold text-[#7c9082] uppercase">+ Add {isTimed ? 'Round' : 'Set'}</button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              }) : (
+                        );
+                      })}
+                    </div>
+                  );
+                })
+              ) : (
                 <div className="bg-white border border-stone-100 rounded-2xl p-5 text-sm text-stone-500 text-center">
                   No exercises scheduled in this session.
                 </div>
