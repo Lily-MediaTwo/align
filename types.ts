@@ -1,8 +1,27 @@
-export type Mood = 'calm' | 'energized' | 'tired' | 'anxious' | 'neutral' | 'happy';
+export type Mood =
+  | 'calm'
+  | 'energized'
+  | 'tired'
+  | 'anxious'
+  | 'neutral'
+  | 'happy'
+  | 'motivated'
+  | 'stressed'
+  | 'sore'
+  | 'focused'
+  | 'frustrated'
+  | 'sad';
 
 export type EquipmentType = 'bodyweight' | 'dumbbell' | 'barbell' | 'cable' | 'kettlebell' | 'machine';
 
-export type WorkoutBlockType = 'warmup' | 'skill_power' | 'compound' | 'accessory' | 'cooldown';
+export type WorkoutBlockType =
+  | 'activation'
+  | 'primary'
+  | 'secondary'
+  | 'accessory'
+  | 'core'
+  | 'conditioning_optional'
+  | 'recovery_note';
 
 export type MovementPattern =
   | 'squat'
@@ -39,6 +58,17 @@ export type Emphasis =
   | 'pull_bias';
 
 export type ConditioningPreference = 'none' | '1_day' | '2_days';
+
+export type ExerciseCategory =
+  | 'Chest'
+  | 'Back'
+  | 'Shoulders'
+  | 'Legs'
+  | 'Core'
+  | 'Cardio'
+  | 'Active Recovery'
+  | 'Biceps'
+  | 'Triceps';
 
 export interface TrainingProgram {
   goal: Goal;
@@ -89,10 +119,6 @@ export interface ExerciseProgress {
 export interface WorkoutBlock {
   type: WorkoutBlockType;
   title: string;
-  durationMin: number;
-  targetCategories: string[];
-  recommendedRestSeconds?: number;
-  notes?: string;
 }
 
 export interface SetLog {
@@ -105,7 +131,7 @@ export interface SetLog {
 
 export interface ExerciseDefinition {
   name: string;
-  category: string;
+  category: ExerciseCategory;
   equipment: EquipmentType;
   recommendedSets: number;
   primaryMuscles: PrimaryMuscle[];
@@ -116,10 +142,21 @@ export interface ExerciseDefinition {
   difficulty: 'beginner' | 'intermediate' | 'advanced';
 }
 
-export interface Exercise extends ExerciseDefinition {
+export interface Exercise {
   id: string;
+  definition: ExerciseDefinition;
   sets: SetLog[];
   equipment?: EquipmentType;
+  // Legacy flattened fields kept optional for migration-safe compatibility
+  name?: string;
+  category?: ExerciseCategory;
+  recommendedSets?: number;
+  primaryMuscles?: PrimaryMuscle[];
+  movementPattern?: MovementPattern;
+  isCompound?: boolean;
+  defaultRepRange?: [number, number];
+  defaultRestSec?: number;
+  difficulty?: "beginner" | "intermediate" | "advanced";
   previousStats?: {
     reps?: number;
     weight?: number;
