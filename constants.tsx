@@ -19,6 +19,8 @@ const inferPrimaryMuscles = (category: string): PrimaryMuscle[] => {
   if (key.includes('back')) return ['back', 'biceps'];
   if (key.includes('shoulder')) return ['shoulders', 'triceps'];
   if (key.includes('leg')) return ['quads', 'glutes', 'hamstrings'];
+  if (key.includes('bicep')) return ['biceps'];
+  if (key.includes('tricep')) return ['triceps'];
   if (key.includes('arm')) return ['biceps', 'triceps'];
   if (key.includes('core')) return ['core'];
   if (key.includes('cardio')) return ['glutes', 'core'];
@@ -115,16 +117,16 @@ const LEGACY_COMMON_EXERCISES = [
   { name: 'Single Leg Romanian Deadlift', category: 'Legs', equipment: 'dumbbell', recommendedSets: [{ reps: 10, weight: 15 }, { reps: 10, weight: 20 }, { reps: 10, weight: 25 }] },
   { name: 'Nordic Curl', category: 'Legs', equipment: 'bodyweight', recommendedSets: [{ reps: 6, weight: 0 }, { reps: 6, weight: 0 }, { reps: 6, weight: 0 }] },
   
-  // Arms
-  { name: 'Bicep Curl', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
-  { name: 'Tricep Extension', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 20 }, { reps: 12, weight: 25 }, { reps: 12, weight: 25 }] },
-  { name: 'Hammer Curl', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
-  { name: 'Preacher Curl', category: 'Arms', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 35 }, { reps: 10, weight: 45 }, { reps: 10, weight: 45 }] },
-  { name: 'Skull Crushers', category: 'Arms', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 35 }, { reps: 10, weight: 45 }, { reps: 10, weight: 45 }] },
-  { name: 'Tricep Pushdown', category: 'Arms', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 30 }, { reps: 15, weight: 40 }, { reps: 15, weight: 50 }] },
-  { name: 'Concentration Curl', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
-  { name: 'Close Grip Bench Press', category: 'Arms', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 65 }, { reps: 10, weight: 95 }, { reps: 10, weight: 115 }] },
-  { name: 'Overhead Cable Tricep Extension', category: 'Arms', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 20 }, { reps: 12, weight: 30 }, { reps: 12, weight: 35 }] },
+  // Biceps / Triceps
+  { name: 'Bicep Curl', category: 'Biceps', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
+  { name: 'Tricep Extension', category: 'Triceps', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 20 }, { reps: 12, weight: 25 }, { reps: 12, weight: 25 }] },
+  { name: 'Hammer Curl', category: 'Biceps', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
+  { name: 'Preacher Curl', category: 'Biceps', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 35 }, { reps: 10, weight: 45 }, { reps: 10, weight: 45 }] },
+  { name: 'Skull Crushers', category: 'Triceps', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 35 }, { reps: 10, weight: 45 }, { reps: 10, weight: 45 }] },
+  { name: 'Tricep Pushdown', category: 'Triceps', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 30 }, { reps: 15, weight: 40 }, { reps: 15, weight: 50 }] },
+  { name: 'Concentration Curl', category: 'Biceps', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
+  { name: 'Close Grip Bench Press', category: 'Triceps', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 65 }, { reps: 10, weight: 95 }, { reps: 10, weight: 115 }] },
+  { name: 'Overhead Cable Tricep Extension', category: 'Triceps', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 20 }, { reps: 12, weight: 30 }, { reps: 12, weight: 35 }] },
   
   // Core
   { name: 'Plank', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }] },
