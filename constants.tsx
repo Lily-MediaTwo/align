@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AppState, UserGoal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType, TrainingProgram, MovementPattern, PrimaryMuscle } from './types';
+import { AppState, UserGoal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType, TrainingProgram, MovementPattern, PrimaryMuscle, Mood } from './types';
 import { getTodayString } from './utils/dateUtils';
 
 const todayString = getTodayString();
@@ -19,6 +19,8 @@ const inferPrimaryMuscles = (category: string): PrimaryMuscle[] => {
   if (key.includes('back')) return ['back', 'biceps'];
   if (key.includes('shoulder')) return ['shoulders', 'triceps'];
   if (key.includes('leg')) return ['quads', 'glutes', 'hamstrings'];
+  if (key.includes('bicep')) return ['biceps'];
+  if (key.includes('tricep')) return ['triceps'];
   if (key.includes('arm')) return ['biceps', 'triceps'];
   if (key.includes('core')) return ['core'];
   if (key.includes('cardio')) return ['glutes', 'core'];
@@ -115,16 +117,16 @@ const LEGACY_COMMON_EXERCISES = [
   { name: 'Single Leg Romanian Deadlift', category: 'Legs', equipment: 'dumbbell', recommendedSets: [{ reps: 10, weight: 15 }, { reps: 10, weight: 20 }, { reps: 10, weight: 25 }] },
   { name: 'Nordic Curl', category: 'Legs', equipment: 'bodyweight', recommendedSets: [{ reps: 6, weight: 0 }, { reps: 6, weight: 0 }, { reps: 6, weight: 0 }] },
   
-  // Arms
-  { name: 'Bicep Curl', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
-  { name: 'Tricep Extension', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 20 }, { reps: 12, weight: 25 }, { reps: 12, weight: 25 }] },
-  { name: 'Hammer Curl', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
-  { name: 'Preacher Curl', category: 'Arms', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 35 }, { reps: 10, weight: 45 }, { reps: 10, weight: 45 }] },
-  { name: 'Skull Crushers', category: 'Arms', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 35 }, { reps: 10, weight: 45 }, { reps: 10, weight: 45 }] },
-  { name: 'Tricep Pushdown', category: 'Arms', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 30 }, { reps: 15, weight: 40 }, { reps: 15, weight: 50 }] },
-  { name: 'Concentration Curl', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
-  { name: 'Close Grip Bench Press', category: 'Arms', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 65 }, { reps: 10, weight: 95 }, { reps: 10, weight: 115 }] },
-  { name: 'Overhead Cable Tricep Extension', category: 'Arms', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 20 }, { reps: 12, weight: 30 }, { reps: 12, weight: 35 }] },
+  // Biceps / Triceps
+  { name: 'Bicep Curl', category: 'Biceps', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
+  { name: 'Tricep Extension', category: 'Triceps', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 20 }, { reps: 12, weight: 25 }, { reps: 12, weight: 25 }] },
+  { name: 'Hammer Curl', category: 'Biceps', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
+  { name: 'Preacher Curl', category: 'Biceps', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 35 }, { reps: 10, weight: 45 }, { reps: 10, weight: 45 }] },
+  { name: 'Skull Crushers', category: 'Triceps', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 35 }, { reps: 10, weight: 45 }, { reps: 10, weight: 45 }] },
+  { name: 'Tricep Pushdown', category: 'Triceps', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 30 }, { reps: 15, weight: 40 }, { reps: 15, weight: 50 }] },
+  { name: 'Concentration Curl', category: 'Biceps', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
+  { name: 'Close Grip Bench Press', category: 'Triceps', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 65 }, { reps: 10, weight: 95 }, { reps: 10, weight: 115 }] },
+  { name: 'Overhead Cable Tricep Extension', category: 'Triceps', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 20 }, { reps: 12, weight: 30 }, { reps: 12, weight: 35 }] },
   
   // Core
   { name: 'Plank', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }] },
@@ -176,6 +178,10 @@ const PROGRAM_EXERCISES: ExerciseDefinition[] = [
   { name: 'Bulgarian Split Squat', category: 'Legs', equipment: 'dumbbell', recommendedSets: 3, primaryMuscles: ['glutes','quads'], movementPattern: 'lunge', isCompound: true, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
   { name: 'Walking Lunges', category: 'Legs', equipment: 'dumbbell', recommendedSets: 3, primaryMuscles: ['glutes','quads','hamstrings'], movementPattern: 'lunge', isCompound: true, defaultRepRange: [10,16], defaultRestSec: 75, difficulty: 'beginner' },
   { name: 'Step Ups', category: 'Legs', equipment: 'dumbbell', recommendedSets: 3, primaryMuscles: ['glutes','quads'], movementPattern: 'lunge', isCompound: true, defaultRepRange: [10,15], defaultRestSec: 75, difficulty: 'beginner' },
+  { name: 'Single Leg RDLs', category: 'Legs', equipment: 'dumbbell', recommendedSets: 3, primaryMuscles: ['hamstrings','glutes'], movementPattern: 'hinge', isCompound: true, defaultRepRange: [8,12], defaultRestSec: 75, difficulty: 'beginner' },
+  { name: 'Hip Adduction', category: 'Legs', equipment: 'machine', recommendedSets: 3, primaryMuscles: ['quads','glutes'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Hip Abduction', category: 'Legs', equipment: 'machine', recommendedSets: 3, primaryMuscles: ['glutes'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Single-Leg Hip Thrust', category: 'Legs', equipment: 'bodyweight', recommendedSets: 3, primaryMuscles: ['glutes','hamstrings'], movementPattern: 'glute_bridge', isCompound: true, defaultRepRange: [10,15], defaultRestSec: 60, difficulty: 'beginner' },
   { name: 'Lying Leg Curl', category: 'Legs', equipment: 'machine', recommendedSets: 3, primaryMuscles: ['hamstrings'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [10,15], defaultRestSec: 60, difficulty: 'beginner' },
   { name: 'Seated Leg Curl', category: 'Legs', equipment: 'machine', recommendedSets: 3, primaryMuscles: ['hamstrings'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [10,15], defaultRestSec: 60, difficulty: 'beginner' },
   { name: 'Nordic Curl', category: 'Legs', equipment: 'bodyweight', recommendedSets: 3, primaryMuscles: ['hamstrings','glutes'], movementPattern: 'hinge', isCompound: true, defaultRepRange: [5,8], defaultRestSec: 90, difficulty: 'advanced' },
@@ -278,13 +284,19 @@ export const INITIAL_STATE: AppState = {
   trainingProgram: DEFAULT_TRAINING_PROGRAM
 };
 
-export const MOOD_CONFIG: Record<string, { emoji: string; color: string }> = {
+export const MOOD_CONFIG: Record<Mood, { emoji: string; color: string }> = {
   calm: { emoji: '🌿', color: 'bg-emerald-50' },
   energized: { emoji: '⚡', color: 'bg-amber-50' },
   tired: { emoji: '☁️', color: 'bg-blue-50' },
   anxious: { emoji: '🌊', color: 'bg-indigo-50' },
   neutral: { emoji: '✨', color: 'bg-stone-50' },
-  happy: { emoji: '☀️', color: 'bg-yellow-50' }
+  happy: { emoji: '☀️', color: 'bg-yellow-50' },
+  motivated: { emoji: '🔥', color: 'bg-rose-50' },
+  stressed: { emoji: '🧩', color: 'bg-violet-50' },
+  sore: { emoji: '🦵', color: 'bg-orange-50' },
+  focused: { emoji: '🎯', color: 'bg-cyan-50' },
+  frustrated: { emoji: '😤', color: 'bg-red-50' },
+  sad: { emoji: '🌧️', color: 'bg-slate-100' }
 };
 
 export const COLORS = {
