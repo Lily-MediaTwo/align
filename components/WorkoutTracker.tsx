@@ -162,23 +162,35 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     finisher: [],
   });
 
-  const findPreviousStats = (exerciseName: string) => {
-    const sortedHistory = [...allHistory].filter(w => w.completed).sort((a, b) =>
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+  const previousStatsByExerciseName = useMemo(() => {
+    const statsMap: Record<string, { reps?: number; weight?: number; durationMinutes?: number }[] | undefined> = {};
+    const sortedHistory = [...allHistory]
+      .filter(workout => workout.completed)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    for (const workout of sortedHistory) {
-      const match = workout.exercises.find(e => e.name.toLowerCase() === exerciseName.toLowerCase());
-      if (match) {
-        return match.sets.map(s => ({
-          reps: s.reps,
-          weight: s.weight,
-          durationMinutes: s.durationMinutes
+    sortedHistory.forEach((workout) => {
+      workout.exercises.forEach((exercise) => {
+        const key = exercise.name.toLowerCase();
+        if (statsMap[key]) return;
+
+        const hasMeaningfulLoggedSet = exercise.sets.some(
+          (set) => set.isCompleted || set.weight !== undefined || set.reps !== undefined || set.durationMinutes !== undefined,
+        );
+
+        if (!hasMeaningfulLoggedSet) return;
+
+        statsMap[key] = exercise.sets.map((set) => ({
+          reps: set.reps,
+          weight: set.weight,
+          durationMinutes: set.durationMinutes,
         }));
-      }
-    }
-    return undefined;
-  };
+      });
+    });
+
+    return statsMap;
+  }, [allHistory]);
+
+  const findPreviousStats = (exerciseName: string) => previousStatsByExerciseName[exerciseName.toLowerCase()];
 
 
   const goalExercisePlan = useMemo(() => {
@@ -1102,18 +1114,19 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                             )}
 
                             <div className="overflow-x-auto no-scrollbar">
-                              <div className={`min-w-[390px] grid ${isTimed ? 'grid-cols-[22px_30px_40px_minmax(84px,1fr)_34px]' : 'grid-cols-[22px_30px_40px_minmax(52px,1fr)_minmax(52px,1fr)_minmax(50px,1fr)_34px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
+                              <div className={`min-w-[350px] grid ${isTimed ? 'grid-cols-[22px_30px_40px_minmax(84px,1fr)_34px]' : 'grid-cols-[22px_30px_40px_minmax(46px,1fr)_minmax(46px,1fr)_minmax(44px,1fr)_34px]'} gap-2 mb-2 text-[10px] font-bold uppercase tracking-wide text-stone-300 px-1`}>
                                 <div></div>
                                 <div>{isTimed ? 'RND' : 'SET'}</div>
                                 <div>PREV</div>
                                 {isTimed ? <div>TIME</div> : <><div className="text-center">LBS</div><div className="text-center">REPS</div><div className="text-center">RIR</div></>}
                                 <div></div>
                               </div>
-                              <div className="space-y-2 min-w-[390px]">
+                              <div className="space-y-2 min-w-[350px]">
                                 {exercise.sets.map((set, idx) => {
-                                  const prev = exercise.previousStats?.[idx];
+                                  const prevSetList = exercise.previousStats?.length ? exercise.previousStats : findPreviousStats(exercise.name);
+                                  const prev = prevSetList?.[idx];
                                   return (
-                                    <div key={idx} className={`grid ${isTimed ? 'grid-cols-[22px_30px_40px_minmax(84px,1fr)_34px]' : 'grid-cols-[22px_30px_40px_minmax(52px,1fr)_minmax(52px,1fr)_minmax(50px,1fr)_34px]'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
+                                    <div key={idx} className={`grid ${isTimed ? 'grid-cols-[22px_30px_40px_minmax(84px,1fr)_34px]' : 'grid-cols-[22px_30px_40px_minmax(46px,1fr)_minmax(46px,1fr)_minmax(44px,1fr)_34px]'} gap-2 items-center p-2 rounded-xl transition-all ${set.isCompleted ? 'bg-[#7c9082]/5' : 'bg-stone-50'}`}>
                                       <div className="flex justify-center">
                                         <button onClick={() => removeSet(exercise.id, idx)} className="w-4 h-4 text-stone-300 text-[10px] leading-none">✕</button>
                                       </div>
