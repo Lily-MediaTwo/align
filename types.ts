@@ -131,7 +131,7 @@ export interface SetLog {
 
 export interface ExerciseDefinition {
   name: string;
-  category: string;
+  category: ExerciseCategory;
   equipment: EquipmentType;
   defaultSets: number;
   primaryMuscles: PrimaryMuscle[];

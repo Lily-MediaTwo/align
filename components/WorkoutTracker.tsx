@@ -462,7 +462,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     onUpdate({ ...activeWorkout, exercises: updated });
   };
 
-  const addExercise = (name: string = newExercise.name, category: string = newExercise.category, equipment: EquipmentType = newExercise.equipment) => {
+  const addExercise = (name: string = newExercise.name, category: ExerciseCategory = newExercise.category, equipment: EquipmentType = newExercise.equipment) => {
     if (!activeWorkout || !name.trim()) return;
 
     // Check if exercise already in current session
