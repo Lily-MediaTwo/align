@@ -8,16 +8,16 @@ import MoodJournal from './components/MoodJournal';
 import AlignmentCenter from './components/AlignmentCenter';
 import { AppState, MoodEntry, Workout, HydrationLog, ExerciseDefinition, CycleConfig, UserGoal, WorkoutBlock, Exercise, EquipmentType, TrainingProgram } from './types';
 import { DEFAULT_TRAINING_PROGRAM, INITIAL_STATE } from './constants';
-import { getDateDaysAgo, getTodayString, isOnOrAfterDate, isSameLocalDay } from './utils/dateUtils';
+import { getTodayString, isInSameTrainingWeek, isSameLocalDay } from './utils/dateUtils';
 
 const App: React.FC = () => {
   const normalizeExerciseDefinition = (exercise: any): ExerciseDefinition => ({
     name: exercise.name,
     category: exercise.category || 'Core',
     equipment: exercise.equipment || 'bodyweight',
-    recommendedSets: typeof exercise.recommendedSets === 'number'
-      ? exercise.recommendedSets
-      : Array.isArray(exercise.recommendedSets) ? exercise.recommendedSets.length || 3 : 3,
+    defaultSets: typeof exercise.defaultSets === 'number'
+      ? exercise.defaultSets
+      : 3,
     primaryMuscles: exercise.primaryMuscles || ['core'],
     movementPattern: exercise.movementPattern || 'isolation',
     isCompound: typeof exercise.isCompound === 'boolean' ? exercise.isCompound : false,
@@ -25,6 +25,21 @@ const App: React.FC = () => {
     defaultRestSec: exercise.defaultRestSec || 60,
     difficulty: exercise.difficulty || 'beginner',
   });
+
+  const normalizeWorkout = (workout: Workout): Workout => ({
+    ...workout,
+    exercises: (workout.exercises || []).map((exercise: any) => {
+      const definition = normalizeExerciseDefinition(exercise.definition || exercise);
+      return {
+        ...exercise,
+        name: exercise.name || definition.name,
+        category: exercise.category || definition.category,
+        equipment: exercise.equipment || definition.equipment,
+        definition,
+      };
+    }),
+  });
+
   const [activeTab, setActiveTab] = useState('home');
   const [dayTick, setDayTick] = useState(() => getTodayString());
   const [state, setState] = useState<AppState>(() => {
@@ -47,6 +62,7 @@ const App: React.FC = () => {
         ...INITIAL_STATE,
         ...parsed,
         availableExercises: mergedAvailableExercises,
+        workouts: (parsed.workouts || []).map(normalizeWorkout),
         hydrationGoals: parsed.hydrationGoals || { [INITIAL_STATE.todayStr]: INITIAL_STATE.dailyHydrationGoal },
         trainingProgram: parsed.trainingProgram || {
           goal: parsed.programSettings?.goal || parsed.trainingProfile?.goal || DEFAULT_TRAINING_PROGRAM.goal,
@@ -95,16 +111,15 @@ const App: React.FC = () => {
   // Derived state for goals based on behavior
   const processedState = useMemo(() => {
     const newState = { ...state, todayStr: dayTick };
-    const oneWeekAgo = getDateDaysAgo(7);
-    
+    const now = new Date();
+
     newState.goals = state.goals.map(goal => {
       let current = goal.current;
       
       if (goal.autoTrack === 'workouts' && goal.type === 'weekly') {
-        current = state.workouts.filter(w => w.completed && isOnOrAfterDate(w.date, oneWeekAgo)).length;
+        current = state.workouts.filter(w => w.completed && isInSameTrainingWeek(w.date, now)).length;
       } else if (goal.autoTrack === 'hydration' && goal.type === 'weekly') {
-        // Simple weekly sum for hydration
-        current = state.hydration.filter(h => isOnOrAfterDate(h.date, oneWeekAgo)).reduce((acc, h) => acc + h.amountOz, 0);
+        current = state.hydration.filter(h => isInSameTrainingWeek(h.date, now)).reduce((acc, h) => acc + h.amountOz, 0);
       }
 
       return {
@@ -210,11 +225,12 @@ const App: React.FC = () => {
   const startNewWorkout = (name: string, blocks?: WorkoutBlock[], plannedExercises: ExerciseDefinition[] = []) => {
     const toExercise = (definition: ExerciseDefinition): Exercise => {
       const isTimed = ['Cardio', 'Active Recovery'].includes(definition.category);
-      const setCount = Math.max(1, definition.recommendedSets || 3);
+      const setCount = Math.max(1, definition.defaultSets || 3);
       const [repMin, repMax] = definition.defaultRepRange || [8, 12];
 
       return {
         id: Math.random().toString(36).substr(2, 9),
+        definition,
         name: definition.name,
         category: definition.category,
         equipment: (definition.equipment || (isTimed ? 'bodyweight' : 'barbell')) as EquipmentType,
@@ -248,12 +264,6 @@ const App: React.FC = () => {
     }));
   };
 
-  const updateTrainingProfile = (profile: Partial<TrainingProfile>) => {
-    setState(prev => ({
-      ...prev,
-      trainingProfile: { ...prev.trainingProfile, ...profile }
-    }));
-  };
 
   const handleNewExerciseCreated = (ex: ExerciseDefinition) => {
     setState(prev => ({

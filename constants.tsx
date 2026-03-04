@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AppState, UserGoal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType, TrainingProgram, MovementPattern, PrimaryMuscle } from './types';
+import { AppState, UserGoal, Workout, ExerciseDefinition, SplitDay, SplitTemplate, EquipmentType, TrainingProgram, Mood } from './types';
 import { getTodayString } from './utils/dateUtils';
 
 const todayString = getTodayString();
@@ -13,183 +13,113 @@ export const DEFAULT_TRAINING_PROGRAM: TrainingProgram = {
   conditioningPreference: 'none',
 };
 
-const inferPrimaryMuscles = (category: string): PrimaryMuscle[] => {
-  const key = category.toLowerCase();
-  if (key.includes('chest')) return ['chest', 'triceps'];
-  if (key.includes('back')) return ['back', 'biceps'];
-  if (key.includes('shoulder')) return ['shoulders', 'triceps'];
-  if (key.includes('leg')) return ['quads', 'glutes', 'hamstrings'];
-  if (key.includes('arm')) return ['biceps', 'triceps'];
-  if (key.includes('core')) return ['core'];
-  if (key.includes('cardio')) return ['glutes', 'core'];
-  return ['core'];
-};
-
-const inferMovementPattern = (name: string, category: string): MovementPattern => {
-  const lower = name.toLowerCase();
-  if (lower.includes('squat')) return 'squat';
-  if (lower.includes('deadlift') || lower.includes('rdl') || lower.includes('hinge')) return 'hinge';
-  if (lower.includes('lunge') || lower.includes('split squat') || lower.includes('step up')) return 'lunge';
-  if (lower.includes('press') && category === 'Chest') return 'horizontal_push';
-  if (lower.includes('press') && category === 'Shoulders') return 'vertical_push';
-  if (lower.includes('row')) return 'horizontal_pull';
-  if (lower.includes('pulldown') || lower.includes('pull up') || lower.includes('chin up')) return 'vertical_pull';
-  if (lower.includes('thrust') || lower.includes('bridge')) return 'glute_bridge';
-  if (lower.includes('carry')) return 'carry';
-  if (category === 'Core') return 'core';
-  return 'isolation';
-};
-
-const enrichExercise = (exercise: any): ExerciseDefinition => {
-  const recommendedSetScheme = Array.isArray(exercise.recommendedSets) ? exercise.recommendedSets : [];
-  const firstRep = recommendedSetScheme.find((set: any) => typeof set.reps === 'number' && set.reps > 0)?.reps;
-  const repRange: [number, number] = firstRep ? [Math.max(3, firstRep - 2), Math.max(firstRep, firstRep + 2)] : [8, 12];
-  const pattern = inferMovementPattern(exercise.name, exercise.category);
-  const isCompound = ['squat', 'hinge', 'lunge', 'horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'glute_bridge'].includes(pattern);
-
-  return {
-    name: exercise.name,
-    category: exercise.category,
-    equipment: exercise.equipment || 'bodyweight',
-    recommendedSets: recommendedSetScheme.length || 3,
-    primaryMuscles: inferPrimaryMuscles(exercise.category),
-    movementPattern: pattern,
-    isCompound,
-    defaultRepRange: repRange,
-    defaultRestSec: isCompound ? 90 : 60,
-    difficulty: isCompound ? 'intermediate' : 'beginner',
-  };
-};
-
-
-const LEGACY_COMMON_EXERCISES = [
-  // Chest
-  { name: 'Bench Press', category: 'Chest', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 45 }, { reps: 10, weight: 95 }, { reps: 8, weight: 135 }] },
-  { name: 'Incline Dumbbell Press', category: 'Chest', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 25 }, { reps: 10, weight: 35 }, { reps: 10, weight: 40 }] },
-  { name: 'Chest Fly', category: 'Chest', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
-  { name: 'Push Ups', category: 'Chest', equipment: 'bodyweight', recommendedSets: [{ reps: 15, weight: 0 }, { reps: 15, weight: 0 }, { reps: 15, weight: 0 }] },
-  { name: 'Dips', category: 'Chest', equipment: 'bodyweight', recommendedSets: [{ reps: 10, weight: 0 }, { reps: 10, weight: 0 }, { reps: 10, weight: 0 }] },
-  { name: 'Cable Crossover', category: 'Chest', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 20 }, { reps: 15, weight: 25 }, { reps: 15, weight: 25 }] },
-  { name: 'Decline Press', category: 'Chest', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 95 }, { reps: 10, weight: 115 }, { reps: 10, weight: 135 }] },
-  { name: 'Pec Deck', category: 'Chest', equipment: 'machine', recommendedSets: [{ reps: 12, weight: 40 }, { reps: 12, weight: 50 }, { reps: 12, weight: 60 }] },
-  
-  // Back
-  { name: 'Pull Ups', category: 'Back', equipment: 'bodyweight', recommendedSets: [{ reps: 8, weight: 0 }, { reps: 8, weight: 0 }, { reps: 8, weight: 0 }] },
-  { name: 'Lat Pulldown', category: 'Back', equipment: 'machine', recommendedSets: [{ reps: 12, weight: 70 }, { reps: 10, weight: 85 }, { reps: 10, weight: 100 }] },
-  { name: 'Bent Over Row', category: 'Back', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 65 }, { reps: 10, weight: 85 }, { reps: 10, weight: 95 }] },
-  { name: 'Deadlift', category: 'Back', equipment: 'barbell', recommendedSets: [{ reps: 8, weight: 135 }, { reps: 5, weight: 185 }, { reps: 5, weight: 225 }] },
-  { name: 'Seated Cable Row', category: 'Back', equipment: 'cable', recommendedSets: [{ reps: 12, weight: 60 }, { reps: 12, weight: 75 }, { reps: 12, weight: 90 }] },
-  { name: 'Single Arm Dumbbell Row', category: 'Back', equipment: 'dumbbell', recommendedSets: [{ reps: 10, weight: 30 }, { reps: 10, weight: 40 }, { reps: 10, weight: 40 }] },
-  { name: 'T-Bar Row', category: 'Back', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 45 }, { reps: 10, weight: 70 }, { reps: 10, weight: 90 }] },
-  { name: 'Face Pulls', category: 'Back', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 30 }, { reps: 15, weight: 35 }, { reps: 15, weight: 40 }] },
-  { name: 'Back Extension', category: 'Back', equipment: 'bodyweight', recommendedSets: [{ reps: 15, weight: 0 }, { reps: 15, weight: 0 }, { reps: 15, weight: 0 }] },
-  { name: 'Chin Ups', category: 'Back', equipment: 'bodyweight', recommendedSets: [{ reps: 8, weight: 0 }, { reps: 8, weight: 0 }, { reps: 8, weight: 0 }] },
-  { name: 'Chest Supported Row', category: 'Back', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 25 }, { reps: 10, weight: 35 }, { reps: 10, weight: 40 }] },
-  { name: 'Neutral Grip Lat Pulldown', category: 'Back', equipment: 'machine', recommendedSets: [{ reps: 12, weight: 70 }, { reps: 10, weight: 85 }, { reps: 10, weight: 100 }] },
-  
-  // Shoulders
-  { name: 'Overhead Press', category: 'Shoulders', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 45 }, { reps: 8, weight: 65 }, { reps: 8, weight: 75 }] },
-  { name: 'Lateral Raise', category: 'Shoulders', equipment: 'dumbbell', recommendedSets: [{ reps: 15, weight: 10 }, { reps: 15, weight: 12 }, { reps: 15, weight: 12 }] },
-  { name: 'Front Raise', category: 'Shoulders', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 10 }, { reps: 12, weight: 12 }, { reps: 12, weight: 12 }] },
-  { name: 'Rear Delt Fly', category: 'Shoulders', equipment: 'dumbbell', recommendedSets: [{ reps: 15, weight: 10 }, { reps: 15, weight: 12 }, { reps: 15, weight: 12 }] },
-  { name: 'Arnold Press', category: 'Shoulders', equipment: 'dumbbell', recommendedSets: [{ reps: 10, weight: 25 }, { reps: 10, weight: 30 }, { reps: 10, weight: 35 }] },
-  { name: 'Upright Row', category: 'Shoulders', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 45 }, { reps: 12, weight: 55 }, { reps: 12, weight: 65 }] },
-  { name: 'Shrugs', category: 'Shoulders', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 50 }, { reps: 12, weight: 60 }, { reps: 12, weight: 70 }] },
-  { name: 'Seated Dumbbell Shoulder Press', category: 'Shoulders', equipment: 'dumbbell', recommendedSets: [{ reps: 10, weight: 20 }, { reps: 10, weight: 30 }, { reps: 8, weight: 35 }] },
-  { name: 'Machine Shoulder Press', category: 'Shoulders', equipment: 'machine', recommendedSets: [{ reps: 12, weight: 50 }, { reps: 10, weight: 70 }, { reps: 10, weight: 90 }] },
-  
-  // Legs
-  { name: 'Squat', category: 'Legs', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 45 }, { reps: 10, weight: 95 }, { reps: 10, weight: 135 }] },
-  { name: 'Leg Press', category: 'Legs', equipment: 'machine', recommendedSets: [{ reps: 12, weight: 90 }, { reps: 12, weight: 140 }, { reps: 12, weight: 180 }] },
-  { name: 'Leg Curl', category: 'Legs', equipment: 'machine', recommendedSets: [{ reps: 12, weight: 50 }, { reps: 12, weight: 60 }, { reps: 12, weight: 70 }] },
-  { name: 'Leg Extension', category: 'Legs', equipment: 'machine', recommendedSets: [{ reps: 12, weight: 50 }, { reps: 12, weight: 60 }, { reps: 12, weight: 70 }] },
-  { name: 'Lunge', category: 'Legs', equipment: 'dumbbell', recommendedSets: [{ reps: 10, weight: 20 }, { reps: 10, weight: 20 }, { reps: 10, weight: 20 }] },
-  { name: 'Bulgarian Split Squat', category: 'Legs', equipment: 'dumbbell', recommendedSets: [{ reps: 10, weight: 15 }, { reps: 10, weight: 20 }, { reps: 10, weight: 20 }] },
-  { name: 'Romanian Deadlift', category: 'Legs', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 95 }, { reps: 10, weight: 115 }, { reps: 10, weight: 135 }] },
-  { name: 'Calf Raise', category: 'Legs', equipment: 'machine', recommendedSets: [{ reps: 15, weight: 70 }, { reps: 15, weight: 90 }, { reps: 15, weight: 110 }] },
-  { name: 'Hack Squat', category: 'Legs', equipment: 'machine', recommendedSets: [{ reps: 10, weight: 45 }, { reps: 10, weight: 90 }, { reps: 10, weight: 135 }] },
-  { name: 'Glute Bridge', category: 'Legs', equipment: 'bodyweight', recommendedSets: [{ reps: 15, weight: 0 }, { reps: 15, weight: 0 }, { reps: 15, weight: 0 }] },
-  { name: 'Hip Thrust', category: 'Legs', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 95 }, { reps: 10, weight: 135 }, { reps: 10, weight: 155 }] },
-  { name: 'Good Morning', category: 'Legs', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 45 }, { reps: 10, weight: 65 }, { reps: 8, weight: 85 }] },
-  { name: 'Cable Pull Through', category: 'Legs', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 40 }, { reps: 12, weight: 50 }, { reps: 12, weight: 60 }] },
-  { name: 'Single Leg Romanian Deadlift', category: 'Legs', equipment: 'dumbbell', recommendedSets: [{ reps: 10, weight: 15 }, { reps: 10, weight: 20 }, { reps: 10, weight: 25 }] },
-  { name: 'Nordic Curl', category: 'Legs', equipment: 'bodyweight', recommendedSets: [{ reps: 6, weight: 0 }, { reps: 6, weight: 0 }, { reps: 6, weight: 0 }] },
-  
-  // Arms
-  { name: 'Bicep Curl', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
-  { name: 'Tricep Extension', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 20 }, { reps: 12, weight: 25 }, { reps: 12, weight: 25 }] },
-  { name: 'Hammer Curl', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
-  { name: 'Preacher Curl', category: 'Arms', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 35 }, { reps: 10, weight: 45 }, { reps: 10, weight: 45 }] },
-  { name: 'Skull Crushers', category: 'Arms', equipment: 'barbell', recommendedSets: [{ reps: 12, weight: 35 }, { reps: 10, weight: 45 }, { reps: 10, weight: 45 }] },
-  { name: 'Tricep Pushdown', category: 'Arms', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 30 }, { reps: 15, weight: 40 }, { reps: 15, weight: 50 }] },
-  { name: 'Concentration Curl', category: 'Arms', equipment: 'dumbbell', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
-  { name: 'Close Grip Bench Press', category: 'Arms', equipment: 'barbell', recommendedSets: [{ reps: 10, weight: 65 }, { reps: 10, weight: 95 }, { reps: 10, weight: 115 }] },
-  { name: 'Overhead Cable Tricep Extension', category: 'Arms', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 20 }, { reps: 12, weight: 30 }, { reps: 12, weight: 35 }] },
-  
-  // Core
-  { name: 'Plank', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }] },
-  { name: 'Hanging Leg Raise', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 12, weight: 0 }, { reps: 12, weight: 0 }, { reps: 12, weight: 0 }] },
-  { name: 'Crunch', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 20, weight: 0 }, { reps: 20, weight: 0 }, { reps: 20, weight: 0 }] },
-  { name: 'Russian Twist', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 20, weight: 0 }, { reps: 20, weight: 0 }, { reps: 20, weight: 0 }] },
-  { name: 'Dead Bug', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 12, weight: 0 }, { reps: 12, weight: 0 }, { reps: 12, weight: 0 }] },
-  { name: 'Mountain Climbers', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 30, weight: 0 }, { reps: 30, weight: 0 }, { reps: 30, weight: 0 }] },
-  { name: 'Ab Wheel Rollout', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 10, weight: 0 }, { reps: 10, weight: 0 }, { reps: 10, weight: 0 }] },
-  { name: 'Woodchopper', category: 'Core', equipment: 'cable', recommendedSets: [{ reps: 15, weight: 20 }, { reps: 15, weight: 25 }, { reps: 15, weight: 25 }] },
-  { name: 'Pallof Press', category: 'Core', equipment: 'cable', recommendedSets: [{ reps: 12, weight: 15 }, { reps: 12, weight: 20 }, { reps: 12, weight: 20 }] },
-  { name: 'Side Plank', category: 'Core', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }, { reps: 0, weight: 0, durationMinutes: 1 }] },
-  { name: 'Farmer Carry', category: 'Core', equipment: 'dumbbell', recommendedSets: [{ reps: 0, weight: 40, durationMinutes: 1 }, { reps: 0, weight: 50, durationMinutes: 1 }, { reps: 0, weight: 60, durationMinutes: 1 }] },
-  { name: 'Suitcase Carry', category: 'Core', equipment: 'kettlebell', recommendedSets: [{ reps: 0, weight: 25, durationMinutes: 1 }, { reps: 0, weight: 35, durationMinutes: 1 }, { reps: 0, weight: 45, durationMinutes: 1 }] },
-  
-  // Cardio
-  { name: 'Running', category: 'Cardio', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 20 }] },
-  { name: 'Cycling', category: 'Cardio', equipment: 'machine', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 30 }] },
-  { name: 'Swimming', category: 'Cardio', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 20 }] },
-  { name: 'Walking', category: 'Cardio', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 30 }] },
-  { name: 'Elliptical', category: 'Cardio', equipment: 'machine', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 20 }] },
-  { name: 'Rowing Machine', category: 'Cardio', equipment: 'machine', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 15 }] },
-  { name: 'Jump Rope', category: 'Cardio', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 10 }] },
-  { name: 'Stair Climber', category: 'Cardio', equipment: 'machine', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 15 }] },
-  { name: 'Assault Bike', category: 'Cardio', equipment: 'machine', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 12 }] },
-  
-  // Active Recovery
-  { name: 'Yoga', category: 'Active Recovery', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 30 }] },
-  { name: 'Stretching', category: 'Active Recovery', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 15 }] },
-  { name: 'Foam Rolling', category: 'Active Recovery', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 10 }] },
-  { name: 'Pilates', category: 'Active Recovery', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 30 }] },
-  { name: 'Mobility Flow', category: 'Active Recovery', equipment: 'bodyweight', recommendedSets: [{ reps: 0, weight: 0, durationMinutes: 15 }] },
-  { name: 'Turkish Get Up', category: 'Active Recovery', equipment: 'kettlebell', recommendedSets: [{ reps: 5, weight: 15 }, { reps: 5, weight: 20 }, { reps: 5, weight: 25 }] },
-  { name: 'Kettlebell Swing', category: 'Cardio', equipment: 'kettlebell', recommendedSets: [{ reps: 20, weight: 20 }, { reps: 20, weight: 25 }, { reps: 20, weight: 35 }] },
-  { name: 'Goblet Squat', category: 'Legs', equipment: 'kettlebell', recommendedSets: [{ reps: 12, weight: 20 }, { reps: 10, weight: 30 }, { reps: 10, weight: 40 }] },
-  { name: 'Kettlebell Clean and Press', category: 'Shoulders', equipment: 'kettlebell', recommendedSets: [{ reps: 8, weight: 20 }, { reps: 8, weight: 25 }, { reps: 8, weight: 35 }] }
-
+export const PROGRAM_EXERCISES: ExerciseDefinition[] = [
+  { name: 'Ab Wheel Rollout', category: 'Core', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'core', isCompound: false, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Arnold Press', category: 'Shoulders', equipment: 'dumbbell', primaryMuscles: ['shoulders','triceps'], movementPattern: 'vertical_push', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Assault Bike', category: 'Cardio', equipment: 'machine', primaryMuscles: ['glutes','core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Back Extension', category: 'Back', equipment: 'bodyweight', primaryMuscles: ['back','biceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Back Squat', category: 'Legs', equipment: 'barbell', primaryMuscles: ['quads','glutes'], movementPattern: 'squat', isCompound: true, defaultSets: 4, defaultRepRange: [6,10], defaultRestSec: 120, difficulty: 'intermediate' },
+  { name: 'Barbell Hip Thrust', category: 'Legs', equipment: 'barbell', primaryMuscles: ['glutes','hamstrings'], movementPattern: 'glute_bridge', isCompound: true, defaultSets: 4, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Barbell RDL', category: 'Legs', equipment: 'barbell', primaryMuscles: ['hamstrings','glutes'], movementPattern: 'hinge', isCompound: true, defaultSets: 4, defaultRepRange: [6,10], defaultRestSec: 120, difficulty: 'intermediate' },
+  { name: 'Belt Squat', category: 'Legs', equipment: 'machine', primaryMuscles: ['quads','glutes'], movementPattern: 'squat', isCompound: true, defaultSets: 4, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Bench Press', category: 'Chest', equipment: 'barbell', primaryMuscles: ['chest','triceps'], movementPattern: 'horizontal_push', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Bent Over Row', category: 'Back', equipment: 'barbell', primaryMuscles: ['back','biceps'], movementPattern: 'horizontal_pull', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Bicep Curl', category: 'Biceps', equipment: 'dumbbell', primaryMuscles: ['biceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Bulgarian Split Squat', category: 'Legs', equipment: 'dumbbell', primaryMuscles: ['glutes','quads'], movementPattern: 'lunge', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Cable Crossover', category: 'Chest', equipment: 'cable', primaryMuscles: ['chest','triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Cable Kickbacks', category: 'Legs', equipment: 'cable', primaryMuscles: ['glutes'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Cable Pull Through', category: 'Legs', equipment: 'cable', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Calf Raise', category: 'Legs', equipment: 'machine', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Chest Fly', category: 'Chest', equipment: 'dumbbell', primaryMuscles: ['chest','triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Chest Supported Row', category: 'Back', equipment: 'dumbbell', primaryMuscles: ['back','biceps'], movementPattern: 'horizontal_pull', isCompound: true, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Chin Ups', category: 'Back', equipment: 'bodyweight', primaryMuscles: ['back','biceps'], movementPattern: 'vertical_pull', isCompound: true, defaultSets: 3, defaultRepRange: [6,10], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Close Grip Bench Press', category: 'Triceps', equipment: 'barbell', primaryMuscles: ['triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Concentration Curl', category: 'Biceps', equipment: 'dumbbell', primaryMuscles: ['biceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Crunch', category: 'Core', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'core', isCompound: false, defaultSets: 3, defaultRepRange: [18,22], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Cycling', category: 'Cardio', equipment: 'machine', primaryMuscles: ['glutes','core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Dead Bug', category: 'Core', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'core', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Deadlift', category: 'Back', equipment: 'barbell', primaryMuscles: ['back','biceps'], movementPattern: 'hinge', isCompound: true, defaultSets: 3, defaultRepRange: [6,10], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Decline Press', category: 'Chest', equipment: 'barbell', primaryMuscles: ['chest','triceps'], movementPattern: 'horizontal_push', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Dips', category: 'Chest', equipment: 'bodyweight', primaryMuscles: ['chest','triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Elliptical', category: 'Cardio', equipment: 'machine', primaryMuscles: ['glutes','core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Face Pulls', category: 'Back', equipment: 'cable', primaryMuscles: ['back','biceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Farmer Carry', category: 'Core', equipment: 'dumbbell', primaryMuscles: ['core'], movementPattern: 'carry', isCompound: false, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Foam Rolling', category: 'Active Recovery', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Front Raise', category: 'Shoulders', equipment: 'dumbbell', primaryMuscles: ['shoulders','triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Front Squat', category: 'Legs', equipment: 'barbell', primaryMuscles: ['quads','glutes','core'], movementPattern: 'squat', isCompound: true, defaultSets: 4, defaultRepRange: [5,8], defaultRestSec: 120, difficulty: 'advanced' },
+  { name: 'Glute Bridge', category: 'Legs', equipment: 'bodyweight', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'glute_bridge', isCompound: true, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Goblet Squat', category: 'Legs', equipment: 'kettlebell', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'squat', isCompound: true, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Good Morning', category: 'Legs', equipment: 'barbell', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Hack Squat', category: 'Legs', equipment: 'machine', primaryMuscles: ['quads','glutes'], movementPattern: 'squat', isCompound: true, defaultSets: 4, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Hammer Curl', category: 'Biceps', equipment: 'dumbbell', primaryMuscles: ['biceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Hanging Leg Raise', category: 'Core', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'core', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Hip Abduction', category: 'Legs', equipment: 'machine', primaryMuscles: ['glutes'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Hip Adduction', category: 'Legs', equipment: 'machine', primaryMuscles: ['quads','glutes'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Hip Thrust', category: 'Legs', equipment: 'barbell', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'glute_bridge', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Incline Dumbbell Press', category: 'Chest', equipment: 'dumbbell', primaryMuscles: ['chest','triceps'], movementPattern: 'horizontal_push', isCompound: true, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Jump Rope', category: 'Cardio', equipment: 'bodyweight', primaryMuscles: ['glutes','core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Kettlebell Clean and Press', category: 'Shoulders', equipment: 'kettlebell', primaryMuscles: ['shoulders','triceps'], movementPattern: 'vertical_push', isCompound: true, defaultSets: 3, defaultRepRange: [6,10], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Kettlebell Swing', category: 'Cardio', equipment: 'kettlebell', primaryMuscles: ['glutes','core'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [18,22], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Lat Pulldown', category: 'Back', equipment: 'machine', primaryMuscles: ['back','biceps'], movementPattern: 'vertical_pull', isCompound: true, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Lateral Raise', category: 'Shoulders', equipment: 'dumbbell', primaryMuscles: ['shoulders','triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Leg Curl', category: 'Legs', equipment: 'machine', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Leg Extension', category: 'Legs', equipment: 'machine', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Leg Press', category: 'Legs', equipment: 'machine', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Lunge', category: 'Legs', equipment: 'dumbbell', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'lunge', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Lying Leg Curl', category: 'Legs', equipment: 'machine', primaryMuscles: ['hamstrings'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,15], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Machine Abduction', category: 'Legs', equipment: 'machine', primaryMuscles: ['glutes'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [15,25], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Machine Hip Thrust', category: 'Legs', equipment: 'machine', primaryMuscles: ['glutes','hamstrings'], movementPattern: 'glute_bridge', isCompound: true, defaultSets: 4, defaultRepRange: [10,15], defaultRestSec: 75, difficulty: 'beginner' },
+  { name: 'Machine Shoulder Press', category: 'Shoulders', equipment: 'machine', primaryMuscles: ['shoulders','triceps'], movementPattern: 'vertical_push', isCompound: true, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Mobility Flow', category: 'Active Recovery', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Mountain Climbers', category: 'Core', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'core', isCompound: false, defaultSets: 3, defaultRepRange: [28,32], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Neutral Grip Lat Pulldown', category: 'Back', equipment: 'machine', primaryMuscles: ['back','biceps'], movementPattern: 'vertical_pull', isCompound: true, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Nordic Curl', category: 'Legs', equipment: 'bodyweight', primaryMuscles: ['hamstrings','glutes'], movementPattern: 'hinge', isCompound: true, defaultSets: 3, defaultRepRange: [5,8], defaultRestSec: 90, difficulty: 'advanced' },
+  { name: 'Overhead Cable Tricep Extension', category: 'Triceps', equipment: 'cable', primaryMuscles: ['triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Overhead Press', category: 'Shoulders', equipment: 'barbell', primaryMuscles: ['shoulders','triceps'], movementPattern: 'vertical_push', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Pallof Press', category: 'Core', equipment: 'cable', primaryMuscles: ['core'], movementPattern: 'core', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Pec Deck', category: 'Chest', equipment: 'machine', primaryMuscles: ['chest','triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Pilates', category: 'Active Recovery', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Plank', category: 'Core', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'core', isCompound: false, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Preacher Curl', category: 'Biceps', equipment: 'barbell', primaryMuscles: ['biceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Pull Ups', category: 'Back', equipment: 'bodyweight', primaryMuscles: ['back','biceps'], movementPattern: 'vertical_pull', isCompound: true, defaultSets: 3, defaultRepRange: [6,10], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Push Ups', category: 'Chest', equipment: 'bodyweight', primaryMuscles: ['chest','triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Rear Delt Fly', category: 'Shoulders', equipment: 'dumbbell', primaryMuscles: ['shoulders','triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Romanian Deadlift', category: 'Legs', equipment: 'barbell', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'hinge', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Rowing Machine', category: 'Cardio', equipment: 'machine', primaryMuscles: ['glutes','core'], movementPattern: 'horizontal_pull', isCompound: true, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Running', category: 'Cardio', equipment: 'bodyweight', primaryMuscles: ['glutes','core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Russian Twist', category: 'Core', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'core', isCompound: false, defaultSets: 3, defaultRepRange: [18,22], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Seated Cable Row', category: 'Back', equipment: 'cable', primaryMuscles: ['back','biceps'], movementPattern: 'horizontal_pull', isCompound: true, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Seated Calf Raise', category: 'Legs', equipment: 'machine', primaryMuscles: ['calves'], movementPattern: 'isolation', isCompound: false, defaultSets: 4, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Seated Dumbbell Shoulder Press', category: 'Shoulders', equipment: 'dumbbell', primaryMuscles: ['shoulders','triceps'], movementPattern: 'vertical_push', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Seated Leg Curl', category: 'Legs', equipment: 'machine', primaryMuscles: ['hamstrings'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,15], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Shrugs', category: 'Shoulders', equipment: 'dumbbell', primaryMuscles: ['shoulders','triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Side Plank', category: 'Core', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'core', isCompound: false, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Single Arm Dumbbell Row', category: 'Back', equipment: 'dumbbell', primaryMuscles: ['back','biceps'], movementPattern: 'horizontal_pull', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Single Leg RDLs', category: 'Legs', equipment: 'dumbbell', primaryMuscles: ['hamstrings','glutes'], movementPattern: 'hinge', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 75, difficulty: 'beginner' },
+  { name: 'Single Leg Romanian Deadlift', category: 'Legs', equipment: 'dumbbell', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'hinge', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Single-Leg Hip Thrust', category: 'Legs', equipment: 'bodyweight', primaryMuscles: ['glutes','hamstrings'], movementPattern: 'glute_bridge', isCompound: true, defaultSets: 3, defaultRepRange: [10,15], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Skull Crushers', category: 'Triceps', equipment: 'barbell', primaryMuscles: ['triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Squat', category: 'Legs', equipment: 'barbell', primaryMuscles: ['quads','glutes','hamstrings'], movementPattern: 'squat', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Stair Climber', category: 'Cardio', equipment: 'machine', primaryMuscles: ['glutes','core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Standing Calf Raise', category: 'Legs', equipment: 'machine', primaryMuscles: ['calves'], movementPattern: 'isolation', isCompound: false, defaultSets: 4, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Step Ups', category: 'Legs', equipment: 'dumbbell', primaryMuscles: ['glutes','quads'], movementPattern: 'lunge', isCompound: true, defaultSets: 3, defaultRepRange: [10,15], defaultRestSec: 75, difficulty: 'beginner' },
+  { name: 'Stretching', category: 'Active Recovery', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Suitcase Carry', category: 'Core', equipment: 'kettlebell', primaryMuscles: ['core'], movementPattern: 'carry', isCompound: false, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Swimming', category: 'Cardio', equipment: 'bodyweight', primaryMuscles: ['glutes','core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'T-Bar Row', category: 'Back', equipment: 'barbell', primaryMuscles: ['back','biceps'], movementPattern: 'horizontal_pull', isCompound: true, defaultSets: 3, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Tibialis Raises', category: 'Legs', equipment: 'bodyweight', primaryMuscles: ['calves'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [15,25], defaultRestSec: 45, difficulty: 'beginner' },
+  { name: 'Trap Bar Deadlift', category: 'Legs', equipment: 'barbell', primaryMuscles: ['glutes','quads','hamstrings'], movementPattern: 'hinge', isCompound: true, defaultSets: 3, defaultRepRange: [4,8], defaultRestSec: 150, difficulty: 'advanced' },
+  { name: 'Tricep Extension', category: 'Triceps', equipment: 'dumbbell', primaryMuscles: ['triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Tricep Pushdown', category: 'Triceps', equipment: 'cable', primaryMuscles: ['triceps'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Turkish Get Up', category: 'Active Recovery', equipment: 'kettlebell', primaryMuscles: ['core'], movementPattern: 'isolation', isCompound: false, defaultSets: 3, defaultRepRange: [3,7], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Upright Row', category: 'Shoulders', equipment: 'barbell', primaryMuscles: ['shoulders','triceps'], movementPattern: 'horizontal_pull', isCompound: true, defaultSets: 3, defaultRepRange: [10,14], defaultRestSec: 90, difficulty: 'intermediate' },
+  { name: 'Walking', category: 'Cardio', equipment: 'bodyweight', primaryMuscles: ['glutes','core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Walking Lunges', category: 'Legs', equipment: 'dumbbell', primaryMuscles: ['glutes','quads','hamstrings'], movementPattern: 'lunge', isCompound: true, defaultSets: 3, defaultRepRange: [10,16], defaultRestSec: 75, difficulty: 'beginner' },
+  { name: 'Woodchopper', category: 'Core', equipment: 'cable', primaryMuscles: ['core'], movementPattern: 'core', isCompound: false, defaultSets: 3, defaultRepRange: [13,17], defaultRestSec: 60, difficulty: 'beginner' },
+  { name: 'Yoga', category: 'Active Recovery', equipment: 'bodyweight', primaryMuscles: ['core'], movementPattern: 'isolation', isCompound: false, defaultSets: 1, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' },
 ];
 
-const PROGRAM_EXERCISES: ExerciseDefinition[] = [
-  { name: 'Back Squat', category: 'Legs', equipment: 'barbell', recommendedSets: 4, primaryMuscles: ['quads','glutes'], movementPattern: 'squat', isCompound: true, defaultRepRange: [6,10], defaultRestSec: 120, difficulty: 'intermediate' },
-  { name: 'Front Squat', category: 'Legs', equipment: 'barbell', recommendedSets: 4, primaryMuscles: ['quads','glutes','core'], movementPattern: 'squat', isCompound: true, defaultRepRange: [5,8], defaultRestSec: 120, difficulty: 'advanced' },
-  { name: 'Hack Squat', category: 'Legs', equipment: 'machine', recommendedSets: 4, primaryMuscles: ['quads','glutes'], movementPattern: 'squat', isCompound: true, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
-  { name: 'Belt Squat', category: 'Legs', equipment: 'machine', recommendedSets: 4, primaryMuscles: ['quads','glutes'], movementPattern: 'squat', isCompound: true, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
-  { name: 'Barbell RDL', category: 'Legs', equipment: 'barbell', recommendedSets: 4, primaryMuscles: ['hamstrings','glutes'], movementPattern: 'hinge', isCompound: true, defaultRepRange: [6,10], defaultRestSec: 120, difficulty: 'intermediate' },
-  { name: 'Trap Bar Deadlift', category: 'Legs', equipment: 'barbell', recommendedSets: 3, primaryMuscles: ['glutes','quads','hamstrings'], movementPattern: 'hinge', isCompound: true, defaultRepRange: [4,8], defaultRestSec: 150, difficulty: 'advanced' },
-  { name: 'Barbell Hip Thrust', category: 'Legs', equipment: 'barbell', recommendedSets: 4, primaryMuscles: ['glutes','hamstrings'], movementPattern: 'glute_bridge', isCompound: true, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
-  { name: 'Machine Hip Thrust', category: 'Legs', equipment: 'machine', recommendedSets: 4, primaryMuscles: ['glutes','hamstrings'], movementPattern: 'glute_bridge', isCompound: true, defaultRepRange: [10,15], defaultRestSec: 75, difficulty: 'beginner' },
-  { name: 'Bulgarian Split Squat', category: 'Legs', equipment: 'dumbbell', recommendedSets: 3, primaryMuscles: ['glutes','quads'], movementPattern: 'lunge', isCompound: true, defaultRepRange: [8,12], defaultRestSec: 90, difficulty: 'intermediate' },
-  { name: 'Walking Lunges', category: 'Legs', equipment: 'dumbbell', recommendedSets: 3, primaryMuscles: ['glutes','quads','hamstrings'], movementPattern: 'lunge', isCompound: true, defaultRepRange: [10,16], defaultRestSec: 75, difficulty: 'beginner' },
-  { name: 'Step Ups', category: 'Legs', equipment: 'dumbbell', recommendedSets: 3, primaryMuscles: ['glutes','quads'], movementPattern: 'lunge', isCompound: true, defaultRepRange: [10,15], defaultRestSec: 75, difficulty: 'beginner' },
-  { name: 'Lying Leg Curl', category: 'Legs', equipment: 'machine', recommendedSets: 3, primaryMuscles: ['hamstrings'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [10,15], defaultRestSec: 60, difficulty: 'beginner' },
-  { name: 'Seated Leg Curl', category: 'Legs', equipment: 'machine', recommendedSets: 3, primaryMuscles: ['hamstrings'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [10,15], defaultRestSec: 60, difficulty: 'beginner' },
-  { name: 'Nordic Curl', category: 'Legs', equipment: 'bodyweight', recommendedSets: 3, primaryMuscles: ['hamstrings','glutes'], movementPattern: 'hinge', isCompound: true, defaultRepRange: [5,8], defaultRestSec: 90, difficulty: 'advanced' },
-  { name: 'Cable Kickbacks', category: 'Legs', equipment: 'cable', recommendedSets: 3, primaryMuscles: ['glutes'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
-  { name: 'Machine Abduction', category: 'Legs', equipment: 'machine', recommendedSets: 3, primaryMuscles: ['glutes'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [15,25], defaultRestSec: 45, difficulty: 'beginner' },
-  { name: 'Seated Calf Raise', category: 'Legs', equipment: 'machine', recommendedSets: 4, primaryMuscles: ['calves'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
-  { name: 'Standing Calf Raise', category: 'Legs', equipment: 'machine', recommendedSets: 4, primaryMuscles: ['calves'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [12,20], defaultRestSec: 45, difficulty: 'beginner' },
-  { name: 'Tibialis Raises', category: 'Legs', equipment: 'bodyweight', recommendedSets: 3, primaryMuscles: ['calves'], movementPattern: 'isolation', isCompound: false, defaultRepRange: [15,25], defaultRestSec: 45, difficulty: 'beginner' }
-];
-
-export const COMMON_EXERCISES: ExerciseDefinition[] = [...LEGACY_COMMON_EXERCISES.map(enrichExercise), ...PROGRAM_EXERCISES].reduce((acc, ex) => {
-  if (!acc.some(item => item.name.toLowerCase() === ex.name.toLowerCase())) acc.push(ex);
-  return acc;
-}, [] as ExerciseDefinition[]);
+export const COMMON_EXERCISES: ExerciseDefinition[] = PROGRAM_EXERCISES;
 
 export const EQUIPMENT_CONFIG: Record<EquipmentType, { label: string; icon: string }> = {
   bodyweight: { label: 'Bodyweight', icon: '👤' },
@@ -278,13 +208,19 @@ export const INITIAL_STATE: AppState = {
   trainingProgram: DEFAULT_TRAINING_PROGRAM
 };
 
-export const MOOD_CONFIG: Record<string, { emoji: string; color: string }> = {
+export const MOOD_CONFIG: Record<Mood, { emoji: string; color: string }> = {
   calm: { emoji: '🌿', color: 'bg-emerald-50' },
   energized: { emoji: '⚡', color: 'bg-amber-50' },
   tired: { emoji: '☁️', color: 'bg-blue-50' },
   anxious: { emoji: '🌊', color: 'bg-indigo-50' },
   neutral: { emoji: '✨', color: 'bg-stone-50' },
-  happy: { emoji: '☀️', color: 'bg-yellow-50' }
+  happy: { emoji: '☀️', color: 'bg-yellow-50' },
+  motivated: { emoji: '🔥', color: 'bg-rose-50' },
+  stressed: { emoji: '🧩', color: 'bg-violet-50' },
+  sore: { emoji: '🦵', color: 'bg-orange-50' },
+  focused: { emoji: '🎯', color: 'bg-cyan-50' },
+  frustrated: { emoji: '😤', color: 'bg-red-50' },
+  sad: { emoji: '🌧️', color: 'bg-slate-100' }
 };
 
 export const COLORS = {
