@@ -224,6 +224,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       categories: ['Core'],
       splitOptionalCategories: ['Core'],
     },
+    core: {
+      categories: ['Core'],
+      splitOptionalCategories: ['Core'],
+    },
     finisher: {
       categories: ['Cardio', 'Core', 'Active Recovery'],
       include: ['assault bike', 'jump rope', 'rowing machine', 'mountain', 'carry', 'swing', 'stair'],
