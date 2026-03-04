@@ -208,15 +208,21 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     };
   }, [trainingProgram.goal]);
 
-  const plannerPhaseConfig: Record<'compound' | 'isolate' | 'core' | 'finisher', { categories: string[]; include?: string[]; exclude?: string[]; enforceSplitFocus?: boolean; splitOptionalCategories?: string[] }> = {
+  const plannerPhaseConfig: Record<'compound' | 'isolate' | 'core' | 'finisher', { categories: string[]; include?: string[]; exclude?: string[]; enforceSplitFocus?: boolean; splitOptionalCategories?: string[]; requireCompound?: boolean }> = {
     compound: {
       categories: ['Chest', 'Back', 'Legs', 'Shoulders'],
       exclude: ['curl', 'extension', 'raise', 'pushdown', 'plank', 'twist', 'crunch'],
       enforceSplitFocus: true,
+      requireCompound: true,
     },
     isolate: {
       categories: ['Biceps', 'Triceps', 'Core', 'Shoulders', 'Legs'],
       enforceSplitFocus: true,
+      requireCompound: false,
+    },
+    core: {
+      categories: ['Core'],
+      splitOptionalCategories: ['Core'],
     },
     core: {
       categories: ['Core'],
@@ -233,7 +239,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     const scoreForPhase = (exercise: ExerciseDefinition, phase: keyof typeof plannerPhaseConfig) => {
       const config = plannerPhaseConfig[phase];
       const categoryHit = config.categories.includes(exercise.category);
-      return categoryHit ? 20 : 0;
+      const compoundMatch = config.requireCompound === undefined || exercise.isCompound === config.requireCompound;
+      return categoryHit && compoundMatch ? 20 : 0;
     };
 
     const phaseAllowsCategory = (phase: keyof typeof plannerPhaseConfig, category: string) => {
@@ -323,10 +330,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       sets: isTimed
         ? (prevStats
             ? prevStats.map(s => ({ durationMinutes: s.durationMinutes ?? 10, isCompleted: false }))
-            : Array.from({ length: definition.recommendedSets || 1 }).map(() => ({ durationMinutes: 10, isCompleted: false })))
+            : Array.from({ length: definition.defaultSets || 1 }).map(() => ({ durationMinutes: 10, isCompleted: false })))
         : (prevStats
             ? prevStats.map(s => ({ reps: s.reps || definition.defaultRepRange?.[1] || 10, weight: maxPrevWeight, isCompleted: false }))
-            : Array.from({ length: definition.recommendedSets || 3 }).map(() => ({ reps: definition.defaultRepRange?.[1] || 10, weight: 0, isCompleted: false })))
+            : Array.from({ length: definition.defaultSets || 3 }).map(() => ({ reps: definition.defaultRepRange?.[1] || 10, weight: 0, isCompleted: false })))
     };
   };
 
@@ -479,7 +486,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
         name: name.trim(),
         category: finalCategory,
         equipment: isTimed ? 'bodyweight' : equipment,
-        recommendedSets: isTimed ? 1 : 3,
+        defaultSets: isTimed ? 1 : 3,
         primaryMuscles: [newExercise.primaryMuscle],
         movementPattern: newExercise.movementPattern,
         isCompound: false,
@@ -498,7 +505,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       maxPrevWeight = Math.max(...prevStats.map(s => s.weight || 0));
     }
 
-    const resolvedDefinition = definition || { name: name.trim(), category: finalCategory, movementPattern: newExercise.movementPattern, primaryMuscles: [newExercise.primaryMuscle], equipment: finalEquipment, recommendedSets: isTimed ? 1 : 3, isCompound: false, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' };
+    const resolvedDefinition = definition || { name: name.trim(), category: finalCategory, movementPattern: newExercise.movementPattern, primaryMuscles: [newExercise.primaryMuscle], equipment: finalEquipment, defaultSets: isTimed ? 1 : 3, isCompound: false, defaultRepRange: [8,12], defaultRestSec: 60, difficulty: 'beginner' };
 
     const exercise: Exercise = {
       id: Math.random().toString(36).substr(2, 9),
@@ -511,10 +518,10 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       sets: isTimed
         ? (prevStats
             ? prevStats.map(s => ({ durationMinutes: s.durationMinutes, isCompleted: false }))
-            : Array.from({ length: definition?.recommendedSets || 1 }).map(() => ({ durationMinutes: 10, isCompleted: false })))
+            : Array.from({ length: definition?.defaultSets || 1 }).map(() => ({ durationMinutes: 10, isCompleted: false })))
         : (prevStats
             ? prevStats.map(s => ({ reps: s.reps || 10, weight: maxPrevWeight, isCompleted: false }))
-            : Array.from({ length: definition?.recommendedSets || 3 }).map(() => ({ reps: definition?.defaultRepRange?.[1] || 10, weight: 0, isCompleted: false })))
+            : Array.from({ length: definition?.defaultSets || 3 }).map(() => ({ reps: definition?.defaultRepRange?.[1] || 10, weight: 0, isCompleted: false })))
     };
 
     onUpdate({

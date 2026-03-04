@@ -133,7 +133,7 @@ export interface ExerciseDefinition {
   name: string;
   category: ExerciseCategory;
   equipment: EquipmentType;
-  recommendedSets: number;
+  defaultSets: number;
   primaryMuscles: PrimaryMuscle[];
   movementPattern: MovementPattern;
   isCompound: boolean;
@@ -146,7 +146,7 @@ export interface Exercise {
   id: string;
   definition: ExerciseDefinition;
   name: string;
-  category: ExerciseCategory;
+  category: string;
   equipment: EquipmentType;
   sets: SetLog[];
   previousStats?: {

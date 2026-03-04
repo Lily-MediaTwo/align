@@ -15,9 +15,9 @@ const App: React.FC = () => {
     name: exercise.name,
     category: exercise.category || 'Core',
     equipment: exercise.equipment || 'bodyweight',
-    recommendedSets: typeof exercise.recommendedSets === 'number'
-      ? exercise.recommendedSets
-      : Array.isArray(exercise.recommendedSets) ? exercise.recommendedSets.length || 3 : 3,
+    defaultSets: typeof exercise.defaultSets === 'number'
+      ? exercise.defaultSets
+      : 3,
     primaryMuscles: exercise.primaryMuscles || ['core'],
     movementPattern: exercise.movementPattern || 'isolation',
     isCompound: typeof exercise.isCompound === 'boolean' ? exercise.isCompound : false,
@@ -225,7 +225,7 @@ const App: React.FC = () => {
   const startNewWorkout = (name: string, blocks?: WorkoutBlock[], plannedExercises: ExerciseDefinition[] = []) => {
     const toExercise = (definition: ExerciseDefinition): Exercise => {
       const isTimed = ['Cardio', 'Active Recovery'].includes(definition.category);
-      const setCount = Math.max(1, definition.recommendedSets || 3);
+      const setCount = Math.max(1, definition.defaultSets || 3);
       const [repMin, repMax] = definition.defaultRepRange || [8, 12];
 
       return {
