@@ -224,10 +224,6 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       categories: ['Core'],
       splitOptionalCategories: ['Core'],
     },
-    core: {
-      categories: ['Core'],
-      splitOptionalCategories: ['Core'],
-    },
     finisher: {
       categories: ['Cardio', 'Core', 'Active Recovery'],
       include: ['assault bike', 'jump rope', 'rowing machine', 'mountain', 'carry', 'swing', 'stair'],
@@ -472,7 +468,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     // Check if exercise already in current session
     if (activeWorkout.exercises.some(e => e.name.toLowerCase() === name.toLowerCase())) return;
 
-    const finalCategory: ExerciseCategory = category || 'Chest';
+    const finalCategory: string = category || 'Chest';
 
     // Find exercise definition for recommendations
     const definition = availableExercises.find(ex => ex.name.toLowerCase() === name.toLowerCase())
