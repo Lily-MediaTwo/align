@@ -597,6 +597,41 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   };
 
 
+
+  useEffect(() => {
+    if (!showPlanner || !activeWorkout) return;
+
+    const seeded: Record<'compound' | 'isolate' | 'core' | 'finisher', ExerciseDefinition[]> = {
+      compound: [],
+      isolate: [],
+      core: [],
+      finisher: [],
+    };
+
+    const seen = new Set<string>();
+
+    activeWorkout.exercises.forEach((exercise) => {
+      const definition = getExerciseDefinition(exercise);
+      const phase = detectExercisePhase(exercise);
+      const key = definition.name.toLowerCase();
+      if (seen.has(key)) return;
+
+      if (phase === 'core') {
+        seeded.core.push(definition);
+      } else if (phase === 'conditioning_optional' || definition.category === 'Cardio' || definition.category === 'Active Recovery') {
+        seeded.finisher.push(definition);
+      } else if (definition.isCompound) {
+        seeded.compound.push(definition);
+      } else {
+        seeded.isolate.push(definition);
+      }
+
+      seen.add(key);
+    });
+
+    setPlannerSelections(seeded);
+  }, [showPlanner, activeWorkout, exercisePhaseOverrides, todayWeekDay?.type]);
+
   const groupedExercises = useMemo(() => {
     if (!activeWorkout) return [];
 
