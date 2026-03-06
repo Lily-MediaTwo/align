@@ -36,7 +36,7 @@ const MoodJournal: React.FC<MoodJournalProps> = ({ moods, onAdd }) => {
           <button
             key={mood}
             onClick={() => setSelectedMood(mood)}
-            className={`flex flex-col items-center gap-2 p-4 rounded-[2rem] transition-all border ${
+            className={`flex flex-col items-center gap-2 p-3.5 rounded-[2rem] transition-all border ${
               selectedMood === mood 
                 ? 'border-[#7c9082] bg-white shadow-md ring-1 ring-[#7c9082]/10' 
                 : 'border-stone-100 bg-white shadow-sm'
