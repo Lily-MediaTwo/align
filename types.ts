@@ -50,6 +50,28 @@ export type PrimaryMuscle =
 
 export type Goal = 'hypertrophy' | 'strength';
 
+export type TrainingModule =
+  | 'strength'
+  | 'hypertrophy'
+  | 'conditioning'
+  | 'hyrox'
+  | 'calisthenics'
+  | 'handstand'
+  | 'l_sit'
+  | 'mobility'
+  | 'core';
+
+export type SessionFocus =
+  | 'scheduled'
+  | 'upper_body'
+  | 'lower_body'
+  | 'push'
+  | 'pull'
+  | 'conditioning'
+  | 'hyrox'
+  | 'calisthenics'
+  | 'mobility';
+
 export type Emphasis =
   | 'balanced'
   | 'glutes_legs'
@@ -76,6 +98,9 @@ export interface TrainingProgram {
   emphasis: Emphasis;
   sessionLengthMin: 45 | 60 | 75 | 90;
   conditioningPreference: ConditioningPreference;
+  enabledModules?: TrainingModule[];
+  availableEquipment?: EquipmentType[];
+  preferredSessionFocuses?: SessionFocus[];
 }
 
 export interface GeneratedWeek {
@@ -119,6 +144,8 @@ export interface ExerciseProgress {
 export interface WorkoutBlock {
   type: WorkoutBlockType;
   title: string;
+  description?: string;
+  rationale?: string;
 }
 
 export interface SetLog {
@@ -126,6 +153,10 @@ export interface SetLog {
   weight?: number;
   rir?: number;
   durationMinutes?: number;
+  distanceMeters?: number;
+  calories?: number;
+  holdSeconds?: number;
+  rounds?: number;
   isCompleted: boolean;
 }
 
@@ -140,6 +171,9 @@ export interface ExerciseDefinition {
   defaultRepRange: [number, number];
   defaultRestSec: number;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
+  secondaryMuscles?: PrimaryMuscle[];
+  modules?: TrainingModule[];
+  skillTags?: string[];
 }
 
 export interface Exercise {

@@ -64,13 +64,16 @@ const App: React.FC = () => {
         availableExercises: mergedAvailableExercises,
         workouts: (parsed.workouts || []).map(normalizeWorkout),
         hydrationGoals: parsed.hydrationGoals || { [INITIAL_STATE.todayStr]: INITIAL_STATE.dailyHydrationGoal },
-        trainingProgram: parsed.trainingProgram || {
-          goal: parsed.programSettings?.goal || parsed.trainingProfile?.goal || DEFAULT_TRAINING_PROGRAM.goal,
-          daysPerWeek: parsed.programSettings?.daysPerWeek || parsed.trainingProfile?.daysPerWeek || DEFAULT_TRAINING_PROGRAM.daysPerWeek,
-          emphasis: parsed.programSettings?.emphasis === 'glutes_legs_3x' ? 'glutes_legs' : (parsed.programSettings?.emphasis || DEFAULT_TRAINING_PROGRAM.emphasis),
-          sessionLengthMin: parsed.programSettings?.sessionLengthMin || parsed.trainingProfile?.sessionLengthMin || DEFAULT_TRAINING_PROGRAM.sessionLengthMin,
-          conditioningPreference: parsed.trainingProgram?.conditioningPreference || 'none',
-        }
+        trainingProgram: parsed.trainingProgram
+          ? { ...DEFAULT_TRAINING_PROGRAM, ...parsed.trainingProgram, enabledModules: parsed.trainingProgram.enabledModules || DEFAULT_TRAINING_PROGRAM.enabledModules }
+          : {
+            goal: parsed.programSettings?.goal || parsed.trainingProfile?.goal || DEFAULT_TRAINING_PROGRAM.goal,
+            daysPerWeek: parsed.programSettings?.daysPerWeek || parsed.trainingProfile?.daysPerWeek || DEFAULT_TRAINING_PROGRAM.daysPerWeek,
+            emphasis: parsed.programSettings?.emphasis === 'glutes_legs_3x' ? 'glutes_legs' : (parsed.programSettings?.emphasis || DEFAULT_TRAINING_PROGRAM.emphasis),
+            sessionLengthMin: parsed.programSettings?.sessionLengthMin || parsed.trainingProfile?.sessionLengthMin || DEFAULT_TRAINING_PROGRAM.sessionLengthMin,
+            conditioningPreference: parsed.trainingProgram?.conditioningPreference || 'none',
+            enabledModules: DEFAULT_TRAINING_PROGRAM.enabledModules,
+          }
       };
     }
     return INITIAL_STATE;

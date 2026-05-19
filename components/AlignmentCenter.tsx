@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { AppState, CycleConfig, UserGoal, TrainingProgram } from '../types';
+import { AppState, CycleConfig, UserGoal, TrainingProgram, TrainingModule } from '../types';
 import { formatLocalDate, parseDayString, toLocalDayString } from '../utils/dateUtils';
 import { getFullWeekStructure } from '../lib/weekGenerator';
 import WeeklyStructurePreview from './WeeklyStructurePreview';
+import { MODULE_OPTIONS } from '../lib/training/recommendedWorkout';
 
 interface AlignmentCenterProps {
   state: AppState;
@@ -113,6 +114,15 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
       unit: 'workouts',
       autoTrack: 'workouts'
     });
+  };
+
+  const enabledModules = state.trainingProgram.enabledModules || [];
+  const toggleTrainingModule = (module: TrainingModule) => {
+    const next = enabledModules.includes(module)
+      ? enabledModules.filter(item => item !== module)
+      : [...enabledModules, module];
+
+    onUpdateTrainingProgram({ enabledModules: next });
   };
 
 
@@ -304,6 +314,29 @@ const AlignmentCenter: React.FC<AlignmentCenterProps> = ({
               <option value="1_day">1 Day</option>
               <option value="2_days">2 Days</option>
             </select>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest block ml-1">Optional Training Modules</label>
+              <p className="text-[11px] text-stone-400 mt-1 ml-1">These become default add-ons in your workout recommendations. You can still change them day by day.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {MODULE_OPTIONS.map((option) => {
+                const selected = enabledModules.includes(option.value);
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => toggleTrainingModule(option.value)}
+                    className={`text-left rounded-2xl border px-4 py-3 transition-all ${selected ? 'bg-[#7c9082]/10 border-[#7c9082]/30' : 'bg-stone-50 border-transparent hover:border-stone-100'}`}
+                  >
+                    <span className="block text-xs font-bold text-stone-700">{option.label}</span>
+                    <span className="block text-[10px] text-stone-400 mt-0.5">{option.description}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="bg-stone-50 rounded-2xl p-4 space-y-3">

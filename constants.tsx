@@ -11,6 +11,7 @@ export const DEFAULT_TRAINING_PROGRAM: TrainingProgram = {
   emphasis: 'balanced',
   sessionLengthMin: 60,
   conditioningPreference: 'none',
+  enabledModules: [],
 };
 
 export const PROGRAM_EXERCISES: ExerciseDefinition[] = [

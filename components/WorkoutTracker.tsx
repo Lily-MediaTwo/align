@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Workout, Exercise, ExerciseDefinition, SetLog, EquipmentType, WorkoutBlock, WorkoutBlockType, MovementPattern, TrainingProgram, WorkoutSectionType, PrimaryMuscle, ExerciseCategory } from '../types';
+import { Workout, Exercise, ExerciseDefinition, SetLog, EquipmentType, WorkoutBlock, WorkoutBlockType, MovementPattern, TrainingProgram, WorkoutSectionType, PrimaryMuscle, ExerciseCategory, TrainingModule, SessionFocus } from '../types';
 import { EQUIPMENT_CONFIG, COMMON_EXERCISES } from '../constants';
 import { generateWeeklyStructure, getTodayStructure } from '../lib/programGenerator';
 import { getFullWeekStructure } from '../lib/weekGenerator';
@@ -8,6 +8,7 @@ import { inferSectionType } from '../lib/workoutStructure';
 import { buildExerciseProgress, estimateWeeklyGluteSets, getProgressionSuggestion, getSessionExerciseCap } from '../lib/progression';
 import { formatLocalDate, getDateDaysAgo, isOnOrAfterDate, parseDayString } from '../utils/dateUtils';
 import { getExerciseCategory, getExerciseDefinition, getExerciseName } from '../lib/exercise';
+import { buildRecommendedWorkout, MODULE_OPTIONS, SESSION_FOCUS_OPTIONS } from '../lib/training/recommendedWorkout';
 
 interface WorkoutTrackerProps {
   activeWorkout?: Workout;
@@ -95,6 +96,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const [collapsedBlocks, setCollapsedBlocks] = useState<Record<string, boolean>>({});
   const [activationComplete, setActivationComplete] = useState(false);
   const [showConditioning, setShowConditioning] = useState(false);
+  const [focusOverride, setFocusOverride] = useState<SessionFocus>('scheduled');
+  const [selectedModules, setSelectedModules] = useState<TrainingModule[]>(() => trainingProgram.enabledModules || []);
 
   const localToday = parseDayString(todayStr);
   const dayIndex = (localToday.getDay() + 6) % 7;
@@ -108,8 +111,22 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   }, [weekStructure, dayIndex]);
   const fallbackDayLabel = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][dayIndex];
   const isRecoveryDay = todayWeekDay?.type === 'rest' || !todayStructure;
-  const todayLabel = todayStructure?.label || (isRecoveryDay ? 'Active Recovery' : 'Workout Session');
-  const currentMovementPriority = todayStructure?.movementPriority || (isRecoveryDay ? ['carry', 'core', 'isolation'] : []);
+
+  useEffect(() => {
+    setSelectedModules(trainingProgram.enabledModules || []);
+  }, [trainingProgram.enabledModules]);
+
+  const recommendedSession = useMemo(() => buildRecommendedWorkout({
+    program: trainingProgram,
+    availableExercises,
+    history: allHistory,
+    todayStr,
+    focusOverride,
+    selectedModules,
+  }), [trainingProgram, availableExercises, allHistory, todayStr, focusOverride, selectedModules]);
+
+  const todayLabel = recommendedSession.title || todayStructure?.label || (isRecoveryDay ? 'Active Recovery' : 'Workout Session');
+  const currentMovementPriority = recommendedSession.movementPriority || todayStructure?.movementPriority || (isRecoveryDay ? ['carry', 'core', 'isolation'] : []);
 
   const splitCategoryMap: Record<string, string[]> = {
     push: ['Chest', 'Shoulders', 'Triceps'],
@@ -136,24 +153,8 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
 
 
   const sessionBlocks = useMemo((): WorkoutBlock[] => {
-    if (todayWeekDay?.type === 'conditioning') {
-      return [
-        { type: 'conditioning_optional', title: 'Conditioning' },
-        { type: 'core', title: 'Core' },
-        { type: 'recovery_note', title: 'Recovery' },
-      ];
-    }
-
-    return [
-      { type: 'activation', title: 'Activation' },
-      { type: 'primary', title: 'Primary Lift' },
-      { type: 'secondary', title: 'Secondary Lift' },
-      { type: 'accessory', title: 'Accessories' },
-      { type: 'core', title: 'Core (Mandatory)' },
-      { type: 'conditioning_optional', title: 'Conditioning (Optional)' },
-      { type: 'recovery_note', title: 'Recovery' },
-    ];
-  }, [todayWeekDay?.type]);
+    return recommendedSession.blocks;
+  }, [recommendedSession.blocks]);
 
   const [plannerSelections, setPlannerSelections] = useState<Record<'compound' | 'isolate' | 'core' | 'finisher', ExerciseDefinition[]>>({
     compound: [],
@@ -287,6 +288,20 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
     return chosen.slice(0, cap);
   };
 
+  const toggleModule = (module: TrainingModule) => {
+    setSelectedModules(prev => {
+      const exists = prev.includes(module);
+      return exists ? prev.filter(item => item !== module) : [...prev, module];
+    });
+  };
+
+  const isTimedExerciseDefinition = (definition: ExerciseDefinition) =>
+    ['Cardio', 'Active Recovery'].includes(definition.category) ||
+    Boolean(definition.modules?.some(module => ['conditioning', 'hyrox', 'handstand', 'mobility'].includes(module)));
+
+  const isTimedExercise = (exercise: Exercise) =>
+    isTimedExerciseDefinition(getExerciseDefinition(exercise));
+
   const togglePlannerSelection = (phase: 'compound' | 'isolate' | 'core' | 'finisher', exercise: ExerciseDefinition) => {
     setPlannerSelections(prev => {
       const exists = prev[phase].some(item => item.name.toLowerCase() === exercise.name.toLowerCase());
@@ -306,12 +321,12 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
       ...plannerSelections.core,
       ...plannerSelections.finisher,
     ];
-    return manual.length ? manual : buildProgramDrivenPlan();
-  }, [plannerSelections, currentMovementPriority, availableExercises, trainingProgram, todayLabel]);
+    return manual.length ? manual : recommendedSession.exercises;
+  }, [plannerSelections, recommendedSession.exercises]);
 
 
   const buildExerciseFromDefinition = (definition: ExerciseDefinition): Exercise => {
-    const isTimed = ['Cardio', 'Active Recovery'].includes(definition.category);
+    const isTimed = isTimedExerciseDefinition(definition);
     const prevStats = findPreviousStats(definition.name);
     const maxPrevWeight = !isTimed && prevStats ? Math.max(...prevStats.map(s => s.weight || 0)) : 0;
 
@@ -423,7 +438,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
   const addSet = (exerciseId: string) => {
     updateExerciseById(exerciseId, (exercise) => {
       const lastSet = exercise.sets[exercise.sets.length - 1];
-      const isTimed = ['Cardio', 'Active Recovery'].includes(getExerciseCategory(exercise));
+      const isTimed = isTimedExercise(exercise);
 
       return {
         ...exercise,
@@ -830,6 +845,51 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
               </div>
             </div>
 
+            <div className="bg-white border border-stone-100 rounded-[2rem] p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Recommended today</p>
+                  <h4 className="serif text-xl text-stone-800 mt-1">{recommendedSession.title}</h4>
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-[#7c9082] bg-[#7c9082]/10 px-3 py-1 rounded-full">
+                  {recommendedSession.exercises.length} moves
+                </span>
+              </div>
+              <div className="space-y-2">
+                {recommendedSession.rationale.slice(0, 3).map((reason, idx) => (
+                  <p key={idx} className="text-[11px] leading-relaxed text-stone-500">{reason}</p>
+                ))}
+              </div>
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Change today's focus</p>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                  {SESSION_FOCUS_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setFocusOverride(option.value)}
+                      className={`px-3 py-2 rounded-full border text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${focusOverride === option.value ? 'bg-[#7c9082] border-[#7c9082] text-white' : 'bg-stone-50 border-stone-100 text-stone-400'}`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Include today</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {MODULE_OPTIONS.map((option) => {
+                    const selected = selectedModules.includes(option.value);
+                    return (
+                      <button key={option.value} onClick={() => toggleModule(option.value)} className={`text-left rounded-xl border px-3 py-2 ${selected ? 'bg-[#7c9082]/10 border-[#7c9082]/30' : 'bg-stone-50 border-stone-100'}`}>
+                        <span className="block text-[11px] font-bold text-stone-700 leading-tight">{option.label}</span>
+                        <span className="block text-[9px] text-stone-400 mt-0.5 leading-tight">{option.description}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-4">
                 {([
                   { key: 'compound', title: 'Compound', target: goalExercisePlan.compound },
@@ -1103,7 +1163,7 @@ const WorkoutTracker: React.FC<WorkoutTrackerProps> = ({
                       )}
 
                       {!isCollapsed && blockType !== 'activation' && blockType !== 'recovery_note' && (blockType !== 'conditioning_optional' || showConditioning || todayWeekDay?.type === 'conditioning') && exercises.map((exercise) => {
-                        const isTimed = ['Cardio', 'Active Recovery'].includes(getExerciseCategory(exercise));
+                        const isTimed = isTimedExercise(exercise);
                         const currentPhase = detectExercisePhase(exercise);
 
                         return (
